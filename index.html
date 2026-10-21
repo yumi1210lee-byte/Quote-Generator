@@ -20,6 +20,8 @@
       </label>
       <button id="saveBtn" type="button">儲存</button>
       <button id="deleteBtn" type="button" class="ghost">刪除</button>
+      <button id="saveTplBtn" type="button" class="ghost">另存為範本</button>
+      <button id="libraryBtn" type="button" class="ghost">品項庫</button>
     </div>
     <div class="toolbar-group">
       <button id="shareBtn" type="button" class="edit-only">複製分享連結</button>
@@ -91,6 +93,23 @@
       <article id="paper" class="paper"></article>
     </div>
   </main>
+
+  <dialog id="libDialog" class="lib-dialog">
+    <div class="lib-head">
+      <h2 id="libTitle">品項庫與範本</h2>
+      <button type="button" class="icon" data-lib="close" title="關閉">✕</button>
+    </div>
+    <div class="lib-tabs">
+      <button type="button" class="chip" data-lib="tab" data-tab="items">品項庫</button>
+      <button type="button" class="chip" data-lib="tab" data-tab="templates">我的範本</button>
+    </div>
+    <div class="lib-tools">
+      <input id="libSearch" type="search" placeholder="搜尋品項，例如：logo、海報、修改">
+      <button type="button" data-lib="new">＋ 新增品項</button>
+    </div>
+    <div id="libCatsBar" class="lib-cats"></div>
+    <div id="libList" class="lib-list"></div>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

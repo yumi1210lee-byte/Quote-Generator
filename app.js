@@ -4,6 +4,8 @@
   const STORE_PROFILE = "quote.profile";
   const STORE_QUOTES = "quote.saved";
   const STORE_DRAFT = "quote.draft";
+  const STORE_LIBRARY = "quote.library";
+  const STORE_TEMPLATES = "quote.templates";
   const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
   const DEFAULT_PROFILE = {
@@ -36,9 +38,25 @@
   }
 
   function newQuote(templateKey = "blank") {
-    const t = TEMPLATES[templateKey] || TEMPLATES.blank;
+    const mine = myTemplates().find((t) => "my:" + t.id === templateKey);
+    const t = mine || TEMPLATES[templateKey] || TEMPLATES.blank;
     return { id: null, date: today(), validDays: 30, ...clone(t.data) };
   }
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // The item library starts from SERVICE_LIBRARY and then belongs to the user.
+  function library() {
+    let lib = storage.get(STORE_LIBRARY, null);
+    if (!lib) {
+      lib = SERVICE_LIBRARY.map((s, i) => ({ id: "seed" + i, ...s }));
+      saveLibrary(lib);
+    }
+    return lib;
+  }
+  function saveLibrary(lib) { storage.set(STORE_LIBRARY, lib); }
+  function myTemplates() { return storage.get(STORE_TEMPLATES, []); }
+  function saveTemplates(list) { storage.set(STORE_TEMPLATES, list); }
 
   function esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -304,15 +322,7 @@
     renderSchedule();
   }
 
-  function libraryOptions() {
-    const cats = {};
-    SERVICE_LIBRARY.forEach((s, i) => { (cats[s.category] ||= []).push(`<option value="${i}">${esc(s.content)}（${esc(priceText(s.price))}）</option>`); });
-    return `<option value="">從常用項目加入…</option>` +
-      Object.entries(cats).map(([c, opts]) => `<optgroup label="${esc(c)}">${opts.join("")}</optgroup>`).join("");
-  }
-
   function renderGroups() {
-    const lib = libraryOptions();
     $("#groups").innerHTML = quote.groups.map((g, gi) => `
       <div class="group-card" data-gi="${gi}">
         <div class="group-head">
@@ -331,12 +341,13 @@
             <div class="row-actions">
               <label class="check"><input type="checkbox" data-i="optional" ${it.optional ? "checked" : ""}>不計入小計（追加/修改費用）</label>
               <label class="check"><input type="checkbox" data-i="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
+              <button type="button" class="icon" data-act="saveToLib" title="存成常用項目">存入品項庫</button>
               <button type="button" class="icon" data-act="delItem" title="刪除">✕</button>
             </div>
           </div>`).join("")}
         <div class="group-foot">
           <button type="button" class="ghost" data-act="addItem">＋ 空白項目</button>
-          <select data-act="addLib">${lib}</select>
+          <button type="button" data-act="pickLib">＋ 從品項庫加入</button>
         </div>
       </div>`).join("");
   }
@@ -375,21 +386,19 @@
 
   function onAction(e) {
     const el = e.target.closest("[data-act]");
-    if (!el || (el.tagName === "SELECT" && e.type === "click")) return;
+    if (!el) return;
     const gEl = el.closest("[data-gi]");
     const gi = gEl ? +gEl.dataset.gi : -1;
     switch (el.dataset.act) {
       case "addItem":
         quote.groups[gi].items.push({ content: "", detail: "", qty: 1, unit: "式", price: "", optional: false });
         break;
-      case "addLib": {
-        if (el.value === "") return;
-        const s = SERVICE_LIBRARY[+el.value];
-        const g = quote.groups[gi];
-        if (!g.name && !g.items.some((it) => it.content)) { g.name = s.category; g.items = []; }
-        g.items.push({ content: s.content, detail: s.detail, qty: 1, unit: s.unit, price: s.price, optional: !!s.optional, noDiscount: !!s.noDiscount });
-        break;
-      }
+      case "pickLib":
+        openLibrary(gi);
+        return;
+      case "saveToLib":
+        saveItemToLibrary(quote.groups[gi], quote.groups[gi].items[+el.closest("[data-ii]").dataset.ii]);
+        return;
       case "delItem":
         quote.groups[gi].items.splice(+el.closest("[data-ii]").dataset.ii, 1);
         break;
@@ -493,7 +502,8 @@
   // ---------- import / export ----------
 
   function exportFile() {
-    const blob = new Blob([JSON.stringify({ q: quote, p: profile }, null, 2)], { type: "application/json" });
+    const data = { q: quote, p: profile, library: library(), templates: myTemplates() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${document.title}.json`;
@@ -504,6 +514,12 @@
   async function importFile(file) {
     try {
       const data = JSON.parse(await file.text());
+      if ((data.library || data.templates) && confirm("這個檔案也有品項庫和範本，要一起匯入嗎？（會合併到現有的，不會刪除）")) {
+        const merge = (mine, theirs) => [...mine.filter((x) => !theirs.some((y) => y.id === x.id)), ...theirs];
+        if (data.library) saveLibrary(merge(library(), data.library));
+        if (data.templates) saveTemplates(merge(myTemplates(), data.templates));
+        renderTemplateSelect();
+      }
       load({ ...newQuote(), ...(data.q || data), id: null });
       toast("已匯入");
     } catch {
@@ -511,11 +527,227 @@
     }
   }
 
+  // ---------- item library & my templates ----------
+
+  let pickTarget = -1;    // group index items are added to; -1 = just managing
+  let libTab = "items";
+  let libCategory = "";
+  let editingId = null;
+
+  function renderTemplateSelect() {
+    const mine = myTemplates();
+    $("#templateSelect").innerHTML = `<option value="">選擇範本開新報價單…</option>
+      <optgroup label="內建範本">${Object.entries(TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join("")}</optgroup>
+      ${mine.length ? `<optgroup label="我的範本">${mine.map((t) => `<option value="my:${esc(t.id)}">${esc(t.label)}</option>`).join("")}</optgroup>` : ""}`;
+  }
+
+  function openLibrary(gi) {
+    pickTarget = gi;
+    libTab = "items";
+    libCategory = "";
+    editingId = null;
+    $("#libSearch").value = "";
+    renderLibrary();
+    $("#libDialog").showModal();
+    if (gi >= 0) $("#libSearch").focus();
+  }
+
+  function itemForm(it) {
+    const cats = [...new Set(library().map((x) => x.category).filter(Boolean))];
+    return `
+      <form class="lib-form" data-id="${esc(it.id || "")}" onsubmit="return false">
+        <label>分類<input name="category" list="libCats" value="${esc(it.category)}" required></label>
+        <label>內容<input name="content" value="${esc(it.content)}" required></label>
+        <label class="full">服務細項<textarea name="detail" rows="4">${esc(it.detail)}</textarea></label>
+        <label>單位<input name="unit" value="${esc(it.unit || "式")}"></label>
+        <label>單價<input name="price" value="${esc(it.price)}" placeholder="數字或區間"></label>
+        <label class="check full"><input type="checkbox" name="optional" ${it.optional ? "checked" : ""}>不計入小計</label>
+        <label class="check full"><input type="checkbox" name="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
+        <div class="full lib-form-actions">
+          <button type="button" class="ghost" data-lib="cancel">取消</button>
+          <button type="button" data-lib="saveItem">儲存品項</button>
+        </div>
+        <datalist id="libCats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+      </form>`;
+  }
+
+  function renderLibrary() {
+    const dlg = $("#libDialog");
+    dlg.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === libTab));
+    $("#libTitle").textContent = pickTarget >= 0 ? `加入到「${quote.groups[pickTarget]?.name || "這個分類"}」` : "品項庫與範本";
+    dlg.classList.toggle("tab-templates", libTab === "templates");
+
+    if (libTab === "templates") {
+      const list = myTemplates();
+      $("#libList").innerHTML = list.length ? list.map((t) => `
+        <div class="lib-row" data-id="${esc(t.id)}">
+          <div class="lib-main"><b>${esc(t.label)}</b>
+            <span class="lib-sub">${t.data.groups.reduce((n, g) => n + g.items.length, 0)} 個品項</span></div>
+          <div class="lib-actions">
+            <button type="button" data-lib="useTpl">套用</button>
+            <button type="button" class="ghost" data-lib="renameTpl">改名</button>
+            <button type="button" class="ghost" data-lib="delTpl">刪除</button>
+          </div>
+        </div>`).join("") : `<p class="lib-empty">還沒有自己的範本。編輯好一份報價單後，按上方工具列的「另存為範本」就會出現在這裡。</p>`;
+      $("#libCatsBar").innerHTML = "";
+      return;
+    }
+
+    const lib = library();
+    const kw = $("#libSearch").value.trim().toLowerCase();
+    const cats = [...new Set(lib.map((x) => x.category || "其他"))];
+    if (libCategory && !cats.includes(libCategory)) libCategory = "";
+    $("#libCatsBar").innerHTML = ["", ...cats].map((c) =>
+      `<button type="button" class="chip${c === libCategory ? " on" : ""}" data-lib="cat" data-cat="${esc(c)}">${c ? esc(c) : "全部"}</button>`).join("");
+
+    const shown = lib.filter((x) => (!libCategory || (x.category || "其他") === libCategory) &&
+      (!kw || [x.category, x.content, x.detail].join(" ").toLowerCase().includes(kw)));
+
+    $("#libList").innerHTML = (editingId === "new" ? itemForm({ category: libCategory }) : "") +
+      (shown.length ? shown.map((x) => editingId === x.id ? itemForm(x) : `
+        <div class="lib-row" data-id="${esc(x.id)}">
+          <div class="lib-main">
+            <span class="lib-sub">${esc(x.category)}</span>
+            <b>${esc(x.content)}</b>
+            ${x.detail ? `<span class="lib-detail">${esc(x.detail)}</span>` : ""}
+          </div>
+          <div class="lib-price">${esc(priceText(x.price))}${x.unit ? ` / ${esc(x.unit)}` : ""}</div>
+          <div class="lib-actions">
+            ${pickTarget >= 0 ? `<button type="button" data-lib="add">加入</button>` : ""}
+            <button type="button" class="ghost" data-lib="edit">編輯</button>
+            <button type="button" class="ghost" data-lib="del">刪除</button>
+          </div>
+        </div>`).join("") : `<p class="lib-empty">找不到符合的品項。可以按「＋ 新增品項」加進品項庫。</p>`);
+  }
+
+  function readItemForm(form) {
+    const f = form.elements;
+    const price = f.price.value.trim();
+    return {
+      category: f.category.value.trim() || "其他",
+      content: f.content.value.trim(),
+      detail: f.detail.value,
+      unit: f.unit.value.trim(),
+      price: toNumber(price) ?? price,
+      optional: f.optional.checked,
+      noDiscount: f.noDiscount.checked,
+    };
+  }
+
+  function addToQuote(x) {
+    const g = quote.groups[pickTarget];
+    if (!g) return;
+    if (!g.name && !g.items.some((it) => it.content)) { g.name = x.category; g.items = []; }
+    g.items.push({ content: x.content, detail: x.detail, qty: 1, unit: x.unit, price: x.price, optional: !!x.optional, noDiscount: !!x.noDiscount });
+    storage.set(STORE_DRAFT, quote);
+    renderGroups();
+    renderPreview();
+    toast(`已加入「${x.content}」`);
+  }
+
+  function onLibraryClick(e) {
+    const btn = e.target.closest("[data-lib]");
+    if (!btn) return;
+    const row = btn.closest("[data-id]");
+    const id = row?.dataset.id;
+    let lib = library();
+    const x = lib.find((i) => i.id === id);
+    switch (btn.dataset.lib) {
+      case "tab": libTab = btn.dataset.tab; editingId = null; break;
+      case "cat": libCategory = btn.dataset.cat; break;
+      case "new": libTab = "items"; editingId = "new"; break;
+      case "cancel": editingId = null; break;
+      case "add": addToQuote(x); return;
+      case "edit": editingId = id; break;
+      case "del":
+        if (!confirm(`從品項庫刪除「${x.content}」？已做好的報價單不受影響。`)) return;
+        saveLibrary(lib.filter((i) => i.id !== id));
+        break;
+      case "saveItem": {
+        const form = btn.closest("form");
+        const item = readItemForm(form);
+        if (!item.content) { toast("請填寫內容"); return; }
+        if (form.dataset.id) lib = lib.map((i) => (i.id === form.dataset.id ? { ...i, ...item } : i));
+        else lib.push({ id: uid(), ...item });
+        saveLibrary(lib);
+        editingId = null;
+        toast("品項庫已更新");
+        break;
+      }
+      case "useTpl": {
+        if (!confirm("用這個範本開新報價單？目前未儲存的內容會被取代。")) return;
+        load(newQuote("my:" + id));
+        $("#libDialog").close();
+        return;
+      }
+      case "renameTpl": {
+        const list = myTemplates();
+        const t = list.find((i) => i.id === id);
+        const name = prompt("範本名稱", t.label);
+        if (!name) return;
+        t.label = name.trim();
+        saveTemplates(list);
+        renderTemplateSelect();
+        break;
+      }
+      case "delTpl":
+        if (!confirm("刪除這個範本？")) return;
+        saveTemplates(myTemplates().filter((i) => i.id !== id));
+        renderTemplateSelect();
+        break;
+      case "close": $("#libDialog").close(); return;
+      default: return;
+    }
+    renderLibrary();
+  }
+
+  function saveItemToLibrary(g, it) {
+    if (!String(it.content).trim()) { toast("請先填寫內容"); return; }
+    const category = prompt("要放在品項庫的哪個分類？", g.name.split("\n")[0] || "其他");
+    if (category === null) return;
+    const lib = library();
+    const item = {
+      category: category.trim() || "其他", content: it.content.trim(), detail: it.detail, unit: it.unit,
+      price: toNumber(it.price) ?? it.price, optional: !!it.optional, noDiscount: !!it.noDiscount,
+    };
+    const same = lib.find((x) => x.category === item.category && x.content === item.content);
+    if (same) {
+      if (!confirm(`品項庫已經有「${item.content}」，要用這次的內容和價格更新它嗎？`)) return;
+      Object.assign(same, item);
+    } else {
+      lib.push({ id: uid(), ...item });
+    }
+    saveLibrary(lib);
+    toast(`已存入品項庫：${item.category}／${item.content}`);
+  }
+
+  function saveAsTemplate() {
+    const name = prompt("範本名稱（客戶資料和日期不會存進範本）", quote.project || "");
+    if (!name) return;
+    const { id, date, client, contact, contactInfo, ...data } = clone(quote);
+    const list = myTemplates();
+    const same = list.find((t) => t.label === name.trim());
+    if (same && !confirm(`已經有「${same.label}」範本，要覆蓋嗎？`)) return;
+    if (same) same.data = data;
+    else list.push({ id: uid(), label: name.trim(), data });
+    saveTemplates(list);
+    renderTemplateSelect();
+    toast(`已存成範本「${name.trim()}」`);
+  }
+
+  function initLibraryDialog() {
+    const dlg = $("#libDialog");
+    dlg.addEventListener("click", (e) => {
+      if (e.target === dlg) dlg.close();   // click on backdrop
+      else onLibraryClick(e);
+    });
+    $("#libSearch").addEventListener("input", () => { libTab = "items"; libCategory = ""; renderLibrary(); });
+  }
+
   // ---------- init ----------
 
   async function init() {
-    $("#templateSelect").innerHTML = `<option value="">選擇範本開新報價單…</option>` +
-      Object.entries(TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join("");
+    renderTemplateSelect();
 
     const m = /#v=(.+)$/.exec(location.hash);
     if (m) {
@@ -544,7 +776,6 @@
     const editor = $("#editor");
     editor.addEventListener("input", onInput);
     editor.addEventListener("click", onAction);
-    editor.addEventListener("change", (e) => { if (e.target.dataset.act === "addLib") onAction(e); });
 
     $("#addGroupBtn").addEventListener("click", () => {
       quote.groups.push({ name: "", items: [{ content: "", detail: "", qty: 1, unit: "式", price: "", optional: false }] });
@@ -558,7 +789,8 @@
       const k = e.target.value;
       e.target.value = "";
       if (!k) return;
-      if (!confirm(`用「${TEMPLATES[k].label}」範本開新報價單？目前未儲存的內容會被取代。`)) return;
+      const label = e.target.querySelector(`option[value="${CSS.escape(k)}"]`).textContent;
+      if (!confirm(`用「${label}」範本開新報價單？目前未儲存的內容會被取代。`)) return;
       load(newQuote(k));
     });
     $("#savedSelect").addEventListener("change", (e) => {
@@ -571,6 +803,9 @@
     $("#exportBtn").addEventListener("click", exportFile);
     $("#importInput").addEventListener("change", (e) => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ""; });
     $("#printBtn").addEventListener("click", () => window.print());
+    $("#libraryBtn").addEventListener("click", () => openLibrary(-1));
+    $("#saveTplBtn").addEventListener("click", saveAsTemplate);
+    initLibraryDialog();
   }
 
   init();
