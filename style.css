@@ -96,7 +96,8 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
   box-shadow: 0 2px 16px rgba(0,0,0,.08);
   display: flex; flex-direction: column;
 }
-.page-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+/* margin-bottom keeps content clear of the page-number footer */
+.page-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; margin-bottom: 8mm; }
 .paper .pre { white-space: pre-line; }
 .paper .sub { color: var(--p-sub); }
 .paper .block { display: block; }
@@ -118,7 +119,8 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 }
 .q-cards:not(.bottom) .card { min-height: 0; gap: 10px; }
 .q-cards:not(.bottom) .card-foot { margin-top: 0; }
-.q-cards.bottom { margin-top: auto; padding-top: 14px; }
+.q-cards.bottom { padding-top: 14px; }
+.page-body > .q-cards.bottom:first-child { padding-top: 0; }
 .q-cards.bottom .card { min-height: 52mm; }
 .card-foot { margin-top: auto; }
 .card .dot {
@@ -169,7 +171,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-step { display: grid; grid-template-columns: 112px 1fr; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--p-rule); }
 .q-step:last-child { border-bottom: none; }
 
-.q-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid var(--p-rule); color: var(--p-sub); font-size: 8.5px; }
+.q-footer { display: flex; justify-content: space-between; gap: 12px; color: var(--p-sub); font-size: 8.5px; }
 .q-footer .page-no { color: var(--p-ink); }
 
 /* a section carried over from the previous block: no rule, empty title column */
