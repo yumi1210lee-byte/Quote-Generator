@@ -111,6 +111,8 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
   background: var(--p-card); border-radius: 14px; padding: 12px 12px 12px;
   min-height: 62mm; display: flex; flex-direction: column; gap: 6px;
 }
+.q-cards:not(.bottom) .card { min-height: 0; gap: 10px; }
+.q-cards:not(.bottom) .card-foot { margin-top: 0; }
 .q-cards.bottom { margin-top: auto; padding-top: 14px; }
 .q-cards.bottom .card { min-height: 52mm; }
 .card-foot { margin-top: auto; }
