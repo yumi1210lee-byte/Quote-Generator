@@ -277,7 +277,7 @@
         <div class="q-item-main">
           <span class="q-item-no">${String.fromCharCode(65 + gi)}${i + 1}</span>
           <div>
-          <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
+          <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag tag-extra">另計</span>` : ""}${it.noDiscount ? `<span class="tag tag-nodisc">不打折</span>` : ""}</div>
           ${it.detail ? `<div class="q-item-detail rich">${richText(it.detail)}</div>` : ""}
           </div>
         </div>
