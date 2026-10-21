@@ -237,6 +237,10 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .lib-price { white-space: nowrap; font-variant-numeric: tabular-nums; padding-top: 14px; }
 .lib-actions { display: flex; gap: 6px; padding-top: 10px; }
 .lib-actions button { padding: 4px 10px; font-size: 12px; }
+.mkt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; font-family: "IBM Plex Mono", "Noto Sans TC", monospace; }
+.mkt:empty { display: none; }
+.mkt a { color: var(--muted); }
+.mkt-flag { color: var(--accent); font-weight: 500; border: 1px solid var(--accent); border-radius: 3px; padding: 0 4px; }
 .lib-empty { color: var(--muted); text-align: center; padding: 30px 0; }
 .lib-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; margin: 8px 0; border: 1px solid var(--ink); border-radius: 8px; }
 .lib-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }

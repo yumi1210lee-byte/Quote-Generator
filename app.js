@@ -77,6 +77,40 @@
     return n === null ? String(v ?? "") : money(n);
   }
 
+  // ---------- market reference (market.js) ----------
+
+  function marketRule(category, content) {
+    const text = `${category || ""} ${content || ""}`;
+    const r = MARKET_RATES.rules.find((x) => x.match.test(text));
+    return r && !r.none ? r : null;
+  }
+
+  // [min, max] of a price that is a number or a range like "22,000 – 38,000"
+  function priceSpan(v) {
+    const n = toNumber(v);
+    if (n !== null) return [n, n];
+    const nums = (String(v ?? "").match(/\d[\d,]*/g) || []).map((x) => Number(x.replace(/,/g, "")));
+    return nums.length ? [Math.min(...nums), Math.max(...nums)] : null;
+  }
+
+  // Editor-only note: market range, a flag when the price falls outside it, and the source
+  function marketNote(category, it) {
+    const r = marketRule(category, it.content);
+    if (!r) return "";
+    const unitOk = !it.unit || r.units.includes(it.unit);
+    const span = priceSpan(it.price);
+    let flag = "";
+    if (unitOk && span && span[1] > 0) {
+      if (span[1] < r.low) flag = "低於行情";
+      else if (span[0] > r.high) flag = "高於行情";
+    }
+    const src = r.sources.map((k) => MARKET_SOURCES[k]);
+    const title = `${r.label}｜${src.map((x) => `${x.name}（${x.updated}）`).join("、")}｜查詢於 ${MARKET_RATES.checked}`;
+    return `<span title="${esc(title)}">市場參考 ${money(r.low)}–${money(r.high)} / ${esc(unitOk && it.unit ? it.unit : r.units[0])}${unitOk ? "" : "（單位不同，僅供參考）"}</span>` +
+      (flag ? `<b class="mkt-flag">${flag}</b>` : "") +
+      `<a href="${esc(src[0].url)}" target="_blank" rel="noopener" title="${esc(title)}">來源</a>`;
+  }
+
   // "79" → 0.79, "85" → 0.85, "9" → 0.9
   function discountRate(v) {
     const n = toNumber(v);
@@ -372,6 +406,7 @@
             <label>數量<input data-i="qty" value="${esc(it.qty)}"></label>
             <label>單位<input data-i="unit" value="${esc(it.unit)}"></label>
             <label>單價<input data-i="price" value="${esc(it.price)}" placeholder="數字或區間"></label>
+            <div class="mkt full" data-mkt>${marketNote(g.name, it)}</div>
             <div class="row-actions">
               <label class="check"><input type="checkbox" data-i="optional" ${it.optional ? "checked" : ""}>不計入小計（追加/修改費用）</label>
               <label class="check"><input type="checkbox" data-i="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
@@ -384,6 +419,13 @@
           <button type="button" data-act="pickLib">＋ 從品項庫加入</button>
         </div>
       </div>`).join("");
+  }
+
+  function refreshMarket(gi) {
+    const g = quote.groups[gi];
+    $("#groups").querySelectorAll(`[data-gi="${gi}"] [data-ii]`).forEach((row) => {
+      row.querySelector("[data-mkt]").innerHTML = marketNote(g.name, g.items[+row.dataset.ii]);
+    });
   }
 
   function renderSchedule() {
@@ -406,9 +448,11 @@
       storage.set(STORE_PROFILE, profile);
     } else if (el.dataset.g) {
       quote.groups[+el.closest("[data-gi]").dataset.gi][el.dataset.g] = el.value;
+      refreshMarket(+el.closest("[data-gi]").dataset.gi);
     } else if (el.dataset.i) {
       const it = quote.groups[+el.closest("[data-gi]").dataset.gi].items[+el.closest("[data-ii]").dataset.ii];
       it[el.dataset.i] = el.type === "checkbox" ? el.checked : el.value;
+      refreshMarket(+el.closest("[data-gi]").dataset.gi);
     } else if (el.dataset.s) {
       quote.schedule[+el.closest("[data-si]").dataset.si][el.dataset.s] = el.value;
     } else {
@@ -644,6 +688,7 @@
             <span class="lib-sub">${esc(x.category)}</span>
             <b>${esc(x.content)}</b>
             ${x.detail ? `<span class="lib-detail">${esc(x.detail)}</span>` : ""}
+            <span class="mkt">${marketNote(x.category, x)}</span>
           </div>
           <div class="lib-price">${esc(priceText(x.price))}${x.unit ? ` / ${esc(x.unit)}` : ""}</div>
           <div class="lib-actions">
