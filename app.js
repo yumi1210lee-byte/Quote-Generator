@@ -7,7 +7,7 @@
   const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
   const DEFAULT_PROFILE = {
-    designer: "", phone: "", email: "",
+    studioName: "", designer: "", phone: "", email: "",
     bankCode: "", bankAccount: "",
     terms: DEFAULT_TERMS,
     footer: "感謝支持 !! 如有問題請隨時提出",
@@ -126,90 +126,112 @@
 
   function renderPreview() {
     const q = quote, p = profile, t = totals(q);
-    const rows = [];
-    for (const g of q.groups) {
-      const items = g.items.length ? g.items : [{}];
-      items.forEach((it, i) => {
-        rows.push(`<tr>
-          ${i === 0 ? `<td class="group" rowspan="${items.length}">${esc(g.name)}</td>` : ""}
-          <td>${esc(it.content)}</td>
-          <td class="detail">${esc(it.detail)}</td>
-          <td class="qty">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</td>
-          <td class="num">${esc(priceText(it.price))}</td>
-          <td class="num">${itemTotal(it)}</td>
-        </tr>`);
-      });
-    }
+    const studio = p.studioName || p.designer || "";
+    const addDays = (s, n) => {
+      const d = parseDate(s);
+      if (!d || !n) return "";
+      d.setDate(d.getDate() + Number(n));
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    };
+    const kv = (rows) => rows.filter(([, v]) => v !== "" && v != null)
+      .map(([k, v]) => `<div class="kv-row"><span>${k}</span><span>${v}</span></div>`).join("");
 
-    const discountRow = t.rate ? `<tr class="discount">
-        <td colspan="3">${esc(q.discountLabel.split("\n")[0])}
-          ${q.discountLabel.includes("\n") ? `<div class="discount-note">${esc(q.discountLabel.split("\n").slice(1).join("\n"))}</div>` : ""}</td>
-        <td></td>
-        <td class="num">${esc(String(toNumber(q.discountRate)))}折</td>
-        <td class="num">${money(t.total)}</td>
-      </tr>` : "";
+    const groups = q.groups.map((g) => `
+      <div class="q-group">
+        <div class="q-group-name">${esc(g.name)}</div>
+        <div class="q-items">
+          ${g.items.map((it) => `
+            <div class="q-item${it.optional ? " is-optional" : ""}">
+              <div class="q-item-main">
+                <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
+                ${it.detail ? `<div class="q-item-detail">${esc(it.detail)}</div>` : ""}
+              </div>
+              <div class="q-num qty">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
+              <div class="q-num">${esc(priceText(it.price))}</div>
+              <div class="q-num">${itemTotal(it)}</div>
+            </div>`).join("")}
+        </div>
+      </div>`).join("");
+
+    const rate = toNumber(q.discountRate);
+    const [discountTitle, ...discountNote] = (q.discountLabel || "折扣").split("\n");
+    const sums = [
+      `<div class="kv-row"><span>${esc(q.subtotalLabel || "小計")}</span><span>${money(t.subtotal)}</span></div>`,
+      t.rate ? `<div class="kv-row"><span>${esc(discountTitle)}　${esc(String(rate))}折${discountNote.length ? `<small>${esc(discountNote.join("\n"))}</small>` : ""}</span><span>−${money(t.subtotal - t.total)}</span></div>` : "",
+      `<div class="kv-row grand"><span>總計 TOTAL (NT$)</span><span>${money(t.total)}</span></div>`,
+      t.deposit ? `<div class="kv-row"><span>訂金 ${esc(q.depositPct)}%</span><span>${money(t.deposit)}</span></div>` : "",
+    ].join("");
 
     const steps = (q.schedule || []).filter((s) => s.start || s.title || s.desc);
     const terms = (p.terms || "").replaceAll("{訂金}", esc(q.depositPct ?? ""));
-    const name = esc(p.designer);
+    const section = (label, body, sub = "") => `
+      <section class="q-section">
+        <h3>${label}${sub ? `<small>${sub}</small>` : ""}</h3>
+        <div>${body}</div>
+      </section>`;
 
     $("#paper").innerHTML = `
-      <div class="q-head">
-        <dl class="q-kv">
-          <dt>專案</dt><dd class="project">${esc(q.project)}</dd>
-          <dt>客戶</dt><dd>${esc(q.client)}</dd>
-          <dt>聯絡人</dt><dd>${esc(q.contact)}</dd>
-          <dt>聯絡方式</dt><dd>${esc(q.contactInfo)}</dd>
-        </dl>
-        <div class="q-right">
-          <dl class="q-kv"><dt>報價日期</dt><dd>${fmtDate(q.date)}</dd></dl>
-          ${q.validDays ? `<div class="q-valid">此報價有效時間為${esc(q.validDays)}日</div>` : ""}
-          <dl class="q-kv"><dt>設計師</dt><dd>${name}</dd></dl>
-        </div>
+      ${studio ? `<header class="q-brand">[${esc(studio)}]</header>` : ""}
+
+      <div class="q-title-row">
+        <div>[${fmtDate(q.date)}]<br>[${esc(q.client || "客戶名稱")}]</div>
+        <div>[${esc(q.project || "專案名稱")}]</div>
+        <div class="q-title">報價單</div>
       </div>
 
-      <table class="q-table">
-        <colgroup><col class="c-group"><col class="c-content"><col class="c-detail"><col class="c-qty"><col class="c-price"><col class="c-total"></colgroup>
-        <thead><tr><th>項目</th><th>內容</th><th>服務細項</th><th>數量</th><th class="num">單價</th><th class="num">總價</th></tr></thead>
-        <tbody>
-          ${rows.join("")}
-          <tr class="sum">
-            <td colspan="3">${esc(q.subtotalLabel || "小計")}</td><td></td><td></td>
-            <td class="num">${money(t.subtotal)}</td>
-          </tr>
-          ${discountRow}
-        </tbody>
-      </table>
-      ${t.hasText ? `<p class="discount-note" style="color:var(--accent);font-size:10px;margin:4px 0 0">＊區間報價項目依實際內容另計，未列入小計</p>` : ""}
+      <div class="q-meta">
+        <div class="q-meta-note">QUOTATION<br>此報價有效時間為${esc(q.validDays || 30)}日</div>
+        <div class="kv">${kv([
+          ["客戶", esc(q.client)],
+          ["聯絡人", esc(q.contact)],
+          ["聯絡方式", esc(q.contactInfo)],
+          ["報價日期", fmtDate(q.date)],
+          ["有效期限", addDays(q.date, q.validDays)],
+          ["設計師", esc(p.designer)],
+        ])}</div>
+      </div>
 
-      ${q.notes ? `<section class="q-block"><h3>備註</h3><div class="body">${esc(q.notes)}</div></section>` : ""}
+      <div class="q-items-head"><span>項目</span><span>內容 / 服務細項</span><span class="q-num">數量</span><span class="q-num">單價</span><span class="q-num">總價</span></div>
+      ${groups}
 
-      ${steps.length ? `<section class="q-block"><h3>時程安排 <small>＊時程大致安排，依實際情況再去做討論調整</small></h3>
-        <div class="q-steps">${steps.map((s) => `<div>
-          <div class="when">${esc([fmtStep(s.start, s.end), s.title].filter(Boolean).join(" "))}</div>
-          ${s.desc ? `<div class="body">${esc(s.desc)}</div>` : ""}
-        </div>`).join("")}</div></section>` : ""}
+      <div class="q-totals">
+        ${t.hasText ? `<p class="q-small">＊區間報價項目依實際內容另計，未列入小計</p>` : "<div></div>"}
+        <div class="kv">${sums}</div>
+      </div>
 
-      ${terms.trim() ? `<section class="q-block"><div class="q-terms">${terms}</div>
-        ${t.deposit ? `<div class="q-terms" style="margin-top:4px">＊本案訂金金額：NT$ ${money(t.deposit)}</div>` : ""}</section>` : ""}
+      ${q.notes ? section("備註", `<div class="pre">${esc(q.notes)}</div>`) : ""}
 
-      <section class="q-block">
-        <div class="q-sign">若確認無誤且接受此報價，請在此簽名並回傳，感謝!!</div>
-        <div class="q-sign-line"><span>客戶簽名</span><span></span></div>
-      </section>
+      ${steps.length ? section("時程安排", `<div class="q-steps">${steps.map((s) => `
+          <div class="q-step">
+            <span class="when">${esc(fmtStep(s.start, s.end)) || "—"}</span>
+            <span><b>${esc(s.title)}</b>${s.desc ? `<span class="pre q-muted">${esc(s.desc)}</span>` : ""}</span>
+          </div>`).join("")}</div>`, "時程大致安排，依實際情況再做討論調整") : ""}
 
-      <section class="q-block">
-        <div class="q-info">
-          <b>匯款資訊</b><span>銀行代碼</span><span>${esc(p.bankCode)}</span><span></span>
-          <span></span><span>帳號</span><span>${esc(p.bankAccount)}</span><span></span>
+      <section class="q-bottom">
+        <div>
+          <div class="q-pay-title">付款資訊</div>
+          <div class="q-pay">
+            <div>[銀行轉帳]</div>
+            <div>${esc(p.bankCode) || "銀行代碼"}</div>
+            <div>帳號 ${esc(p.bankAccount)}</div>
+          </div>
+          <div class="q-sign">
+            <div>若確認無誤且接受此報價，請簽名並回傳，感謝！</div>
+            <div class="q-sign-line"><span>客戶簽名</span><span></span></div>
+          </div>
+        </div>
+        <div class="q-terms">
+          <b>合作條款</b>
+          <div class="pre">${terms}</div>
         </div>
       </section>
-      <section class="q-block">
-        <div class="q-info">
-          <b>聯絡資訊</b><span>${name}</span><span>${esc(p.phone)}</span><span>${esc(p.email)}</span>
-        </div>
-      </section>
-      ${p.footer ? `<div class="q-footer">${esc(p.footer)}</div>` : ""}
+
+      <footer class="q-footer">
+        <div>[${esc(studio)}]${p.studioName && p.designer && p.studioName !== p.designer ? `<br>${esc(p.designer)}` : ""}</div>
+        <div>[電話]<br>${esc(p.phone)}</div>
+        <div>[EMAIL]<br>${esc(p.email)}</div>
+        <div>${esc(p.footer)}</div>
+      </footer>
     `;
 
     const ymd = (q.date || today()).replaceAll("-", "");
