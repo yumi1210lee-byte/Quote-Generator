@@ -201,7 +201,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-item-title { font-weight: 500; white-space: pre-line; }
 .q-item-detail { color: var(--p-sub); white-space: pre-line; margin-top: 2px; font-size: 9.5px; }
 .q-item.is-optional .q-item-title, .q-item.is-optional .q-num { color: var(--p-sub); }
-.q-item .tag { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid currentColor; border-radius: 8px; font-size: 8px; font-weight: 500; vertical-align: 1px; }
+.q-item .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: 8px; font-weight: 500; vertical-align: 1px; }
 .q-item .tag-extra { color: var(--hl-blue); }
 .q-item .tag-nodisc { color: var(--hl-orange); }
 
@@ -247,7 +247,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .mkt:empty { display: none; }
 .mkt a { color: var(--muted); }
 .mkt > span:first-child { color: var(--hl-blue); }
-.mkt-flag { color: var(--hl-orange); border: 1px solid currentColor; font-weight: 500; border-radius: 3px; padding: 0 5px; }
+.mkt-flag { color: var(--hl-orange); border: 1px solid currentColor; font-weight: 500; border-radius: 999px; padding: 0 7px; }
 .lib-empty { color: var(--muted); text-align: center; padding: 30px 0; }
 .lib-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; margin: 8px 0; border: 1px solid var(--ink); border-radius: 8px; }
 .lib-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
