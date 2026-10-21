@@ -127,6 +127,7 @@
   function renderPreview() {
     const q = quote, p = profile, t = totals(q);
     const studio = p.studioName || p.designer || "";
+    const ymd = (q.date || today()).replaceAll("-", "");
     const addDays = (s, n) => {
       const d = parseDate(s);
       if (!d || !n) return "";
@@ -138,47 +139,25 @@
     const kv = (rows) => rows.filter(([, , v]) => v !== "" && v != null)
       .map(([zh, en, v]) => `<div class="kv-row">${lbl(zh, en)}<span>${v}</span></div>`).join("");
 
+    // The quote is built as a list of blocks, then poured into A4 pages.
+    // A section is split into one block per row so a long list can continue
+    // on the next page; continuation blocks ("cont") repeat the title there.
+    const blocks = [];
     let n = 0;
-    const num = () => String(++n).padStart(2, "0");
-    const section = (title, en, meta, body) => `
-      <section class="q-sec">
-        <div class="q-sec-head">
-          <div class="q-sec-meta"><span>${num()}</span><span>${meta}</span></div>
-          <h2>${title}<small>${en}</small></h2>
-        </div>
-        <div class="q-sec-body">${body}</div>
-      </section>`;
+    const head = (no, title, en, meta) => `
+      <div class="q-sec-head">
+        <div class="q-sec-meta"><span>${no}</span><span>${meta}</span></div>
+        <h2>${title}<small>${en}</small></h2>
+      </div>`;
+    const addSection = (title, en, meta, rows) => {
+      const no = String(++n).padStart(2, "0");
+      rows.forEach((row, i) => blocks.push({
+        html: `<section class="q-sec${i ? " cont" : ""}">${i ? `<div class="q-sec-head"></div>` : head(no, title, en, meta)}<div class="q-sec-body">${row}</div></section>`,
+        contHead: i ? head(no, title, `${en} (CONT.)`, "續") : null,
+      }));
+    };
 
-    const itemCount = q.groups.reduce((s, g) => s + g.items.length, 0);
-    const groups = q.groups.map((g) => `
-      <div class="q-group">
-        ${g.name ? `<div class="q-group-name">${esc(g.name)}</div>` : ""}
-        ${g.items.map((it) => `
-          <div class="q-item${it.optional ? " is-optional" : ""}">
-            <div>
-              <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
-              ${it.detail ? `<div class="q-item-detail">${esc(it.detail)}</div>` : ""}
-            </div>
-            <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
-            <div class="q-num">${esc(priceText(it.price))}</div>
-            <div class="q-num strong">${itemTotal(it) ? `→ ${itemTotal(it)}` : ""}</div>
-          </div>`).join("")}
-      </div>`).join("");
-
-    const rate = toNumber(q.discountRate);
-    const [discountTitle, ...discountNote] = (q.discountLabel || "折扣").split("\n");
-    const sums = `
-      <div class="kv-row">${lbl(esc(q.subtotalLabel || "小計"), "SUBTOTAL")}<span>${money(t.subtotal)}</span></div>
-      ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>−${money(t.subtotal - t.total)}</span></div>` : ""}
-      <div class="kv-row grand">${lbl("總計", "TOTAL NT$")}<span>${money(t.total)}</span></div>
-      ${t.deposit ? `<div class="kv-row">${lbl(`訂金 ${esc(q.depositPct)}%`, "DEPOSIT")}<span>${money(t.deposit)}</span></div>` : ""}
-      ${t.hasText ? `<p class="q-note">＊區間報價項目依實際內容另計，未列入小計</p>` : ""}`;
-
-    const steps = (q.schedule || []).filter((s) => s.start || s.title || s.desc);
-    const terms = (p.terms || "").replaceAll("{訂金}", esc(q.depositPct ?? ""));
-    const ymd = (q.date || today()).replaceAll("-", "");
-
-    $("#paper").innerHTML = `
+    blocks.push({ html: `
       <div class="q-cards">
         <div class="card">
           <div class="dot">${esc(studio) || "STUDIO"}</div>
@@ -206,27 +185,53 @@
             ["有效期限", "VALID UNTIL", addDays(q.date, q.validDays)],
           ])}</div>
         </div>
-      </div>
+      </div>` });
 
-      ${section("報價項目", "ITEMS", `${itemCount} 項`, `
-        <div class="q-item q-items-head"><span>內容 / 服務細項</span><span class="q-num">數量</span><span class="q-num">單價</span><span class="q-num">總價</span></div>
-        ${groups}`)}
+    const itemRows = [];
+    q.groups.forEach((g) => g.items.forEach((it, i) => itemRows.push(`
+      ${i === 0 && g.name ? `<div class="q-group-name">${esc(g.name)}</div>` : ""}
+      <div class="q-item${it.optional ? " is-optional" : ""}">
+        <div>
+          <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
+          ${it.detail ? `<div class="q-item-detail">${esc(it.detail)}</div>` : ""}
+        </div>
+        <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
+        <div class="q-num">${esc(priceText(it.price))}</div>
+        <div class="q-num strong">${itemTotal(it) ? `→ ${itemTotal(it)}` : ""}</div>
+      </div>`)));
+    if (!itemRows.length) itemRows.push("");
+    itemRows[0] = `<div class="q-item q-items-head"><span>內容 / 服務細項</span><span class="q-num">數量</span><span class="q-num">單價</span><span class="q-num">總價</span></div>` + itemRows[0];
+    addSection("報價項目", "ITEMS", `${itemRows.length} 項`, itemRows);
 
-      ${section("金額", "AMOUNT", "NT$", `<div class="kv sums">${sums}</div>`)}
+    const rate = toNumber(q.discountRate);
+    const [discountTitle, ...discountNote] = (q.discountLabel || "折扣").split("\n");
+    addSection("金額", "AMOUNT", "NT$", [`<div class="kv sums">
+      <div class="kv-row">${lbl(esc(q.subtotalLabel || "小計"), "SUBTOTAL")}<span>${money(t.subtotal)}</span></div>
+      ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>−${money(t.subtotal - t.total)}</span></div>` : ""}
+      <div class="kv-row grand">${lbl("總計", "TOTAL NT$")}<span>${money(t.total)}</span></div>
+      ${t.deposit ? `<div class="kv-row">${lbl(`訂金 ${esc(q.depositPct)}%`, "DEPOSIT")}<span>${money(t.deposit)}</span></div>` : ""}
+      ${t.hasText ? `<p class="q-note">＊區間報價項目依實際內容另計，未列入小計</p>` : ""}
+    </div>`]);
 
-      ${q.notes ? section("備註", "NOTES", "", `<div class="pre">${esc(q.notes)}</div>`) : ""}
+    if (q.notes) addSection("備註", "NOTES", "", [`<div class="pre">${esc(q.notes)}</div>`]);
 
-      ${steps.length ? section("時程安排", "SCHEDULE", `${steps.length} 階段`, `
-        <p class="q-note top">時程大致安排，依實際情況再做討論調整</p>
-        ${steps.map((s) => `
-          <div class="q-step">
-            <span class="mono">${esc(fmtStep(s.start, s.end)) || "—"}</span>
-            <span><b>${esc(s.title)}</b>${s.desc ? `<span class="pre sub block">${esc(s.desc)}</span>` : ""}</span>
-          </div>`).join("")}`) : ""}
+    const steps = (q.schedule || []).filter((s) => s.start || s.title || s.desc);
+    if (steps.length) {
+      const rows = steps.map((s) => `
+        <div class="q-step">
+          <span class="mono">${esc(fmtStep(s.start, s.end)) || "—"}</span>
+          <span><b>${esc(s.title)}</b>${s.desc ? `<span class="pre sub block">${esc(s.desc)}</span>` : ""}</span>
+        </div>`);
+      rows[0] = `<p class="q-note top">時程大致安排，依實際情況再做討論調整</p>` + rows[0];
+      addSection("時程安排", "SCHEDULE", `${steps.length} 階段`, rows);
+    }
 
+    const terms = (p.terms || "").replaceAll("{訂金}", esc(q.depositPct ?? ""));
+    const no = () => String(++n).padStart(2, "0");
+    blocks.push({ html: `
       <div class="q-cards bottom">
         <div class="card">
-          <div class="mono">${num()}</div>
+          <div class="mono">${no()}</div>
           <div class="card-head">付款資訊<i>PAYMENT</i></div>
           <div class="card-foot">
             <div class="sub">銀行轉帳 BANK TRANSFER</div>
@@ -235,7 +240,7 @@
           </div>
         </div>
         <div class="card">
-          <div class="mono">${num()}</div>
+          <div class="mono">${no()}</div>
           <div class="card-head">確認簽名<i>SIGNATURE</i></div>
           <div class="card-foot">
             <div class="sub">若確認無誤且接受此報價，請簽名並回傳，感謝！</div>
@@ -244,20 +249,50 @@
           </div>
         </div>
         <div class="card">
-          <div class="mono">${num()}</div>
+          <div class="mono">${no()}</div>
           <div class="card-head">合作條款<i>TERMS</i></div>
           <div class="card-foot terms pre">${terms}</div>
         </div>
-      </div>
+      </div>` });
 
-      <footer class="q-footer mono">
-        <span>${esc(studio)}</span>
-        <span>${esc(p.footer)}</span>
-        <span>${ymd}</span>
-      </footer>
-    `;
+    paginate(blocks, (i, total) => `
+      <span>${esc(studio)}</span>
+      <span>${esc(p.footer)}</span>
+      <span class="page-no">PAGE ${i} / ${total}</span>`);
 
     document.title = [ymd, q.project, "報價"].filter(Boolean).join("_");
+  }
+
+  function paginate(blocks, footer) {
+    const paper = $("#paper");
+    paper.innerHTML = "";
+    const pages = [];
+    const newPage = () => {
+      const page = document.createElement("div");
+      page.className = "page";
+      page.innerHTML = `<div class="page-body"></div><footer class="q-footer mono"></footer>`;
+      paper.appendChild(page);
+      pages.push(page);
+      return page.firstElementChild;
+    };
+    const tpl = document.createElement("template");
+    let body = newPage();
+    for (const b of blocks) {
+      tpl.innerHTML = b.html.trim();
+      const el = tpl.content.firstElementChild;
+      body.appendChild(el);
+      if (body.scrollHeight > body.clientHeight + 1 && body.children.length > 1) {
+        el.remove();
+        body = newPage();
+        body.appendChild(el);
+      }
+      // A continued section that opens a page gets its title back
+      if (b.contHead && body.firstElementChild === el) {
+        el.classList.remove("cont");
+        el.querySelector(".q-sec-head").outerHTML = b.contHead;
+      }
+    }
+    pages.forEach((page, i) => { page.lastElementChild.innerHTML = footer(i + 1, pages.length); });
   }
 
   // ---------- editor ----------
@@ -539,4 +574,5 @@
   }
 
   init();
+  if (document.fonts) document.fonts.ready.then(() => { if (quote) renderPreview(); });
 })();

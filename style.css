@@ -84,14 +84,19 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
   --p-card: #efefed;
   --mono: "IBM Plex Mono", "Noto Sans TC", monospace;
   --serif: "Noto Serif TC", serif;
-  width: 210mm; min-height: 297mm;
-  background: #fff; color: var(--p-ink);
-  padding: 10mm;
-  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  color: var(--p-ink);
   font-family: "Noto Sans TC", sans-serif;
   font-size: 10.5px; line-height: 1.55;
-  display: flex; flex-direction: column; gap: 0;
+  display: flex; flex-direction: column; gap: 16px;
 }
+/* one fixed A4 sheet; content that does not fit moves to the next sheet */
+.page {
+  width: 210mm; height: 297mm; overflow: hidden;
+  background: #fff; padding: 10mm 10mm 7mm;
+  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  display: flex; flex-direction: column;
+}
+.page-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .paper .pre { white-space: pre-line; }
 .paper .sub { color: var(--p-sub); }
 .paper .block { display: block; }
@@ -164,7 +169,14 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-step { display: grid; grid-template-columns: 112px 1fr; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--p-rule); }
 .q-step:last-child { border-bottom: none; }
 
-.q-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; color: var(--p-sub); font-size: 8.5px; }
+.q-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid var(--p-rule); color: var(--p-sub); font-size: 8.5px; }
+.q-footer .page-no { color: var(--p-ink); }
+
+/* a section carried over from the previous block: no rule, empty title column */
+.q-sec.cont { border-top: none; padding-top: 0; }
+.q-sec.cont::before, .q-sec.cont::after { display: none; }
+.q-sec.cont .q-item:first-child { border-top: none; }
+.page-body > .q-sec:first-child { margin-top: 0; }
 
 /* view-only mode (shared link) */
 .view-only { display: none; }
@@ -185,11 +197,13 @@ body.view .layout { grid-template-columns: 1fr; }
   .preview-wrap { overflow-x: auto; justify-content: flex-start; }
 }
 
-@page { size: A4; margin: 12mm 10mm; }
+@page { size: A4; margin: 0; }
 @media print {
   body { background: #fff; }
   .toolbar, .editor, .toast { display: none !important; }
   .layout { display: block; padding: 0; }
-  .paper { width: auto; min-height: calc(297mm - 26mm); padding: 0; box-shadow: none; }
+  .paper { gap: 0; }
+  .page { box-shadow: none; break-after: page; }
+  .page:last-child { break-after: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
