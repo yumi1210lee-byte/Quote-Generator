@@ -185,12 +185,12 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-items-head .q-num { font-size: 8.5px; }
 /* category header: serif name with letter code and category subtotal, ruled in black */
 .q-group {
-  display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); align-items: baseline;
-  padding: calc(var(--u) * 2) 0 var(--u); border-bottom: 1px solid var(--p-ink);
+  display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); align-items: center;
+  padding: calc(var(--u) * 1.5) 0; border-bottom: 1px solid var(--p-ink);
 }
-.q-group-title { grid-column: 1 / 7; font-family: var(--serif); font-size: 14px; line-height: 1.3; white-space: pre-line; }
+.q-group-title { grid-column: 1 / 7; font-family: var(--serif); font-size: 14px; line-height: 1.2; white-space: pre-line; }
 .q-group-title .code { font-family: var(--mono); font-size: 9px; color: var(--p-sub); margin-right: var(--u); vertical-align: 2px; }
-.q-group-sum { grid-column: 7 / 9; text-align: right; font-family: var(--mono); font-size: 10px; color: var(--p-sub); }
+.q-group-sum { grid-column: 7 / 9; text-align: right; font-family: var(--mono); font-size: 10px; line-height: 1.2; color: var(--p-sub); }
 /* item: grey index in its own column, title and detail aligned after it */
 .q-item-main { display: grid; grid-template-columns: 2.4em 1fr; }
 .q-item-no { font-family: var(--mono); font-size: 9px; color: var(--p-sub); padding-top: 1px; }
