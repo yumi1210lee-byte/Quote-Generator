@@ -226,12 +226,26 @@
       </div>` });
 
     const itemRows = [];
-    q.groups.forEach((g) => g.items.forEach((it, i) => itemRows.push(`
-      ${i === 0 && g.name ? `<div class="q-group-name">${esc(g.name)}</div>` : ""}
+    // Category header (letter, name, category subtotal) above its numbered items
+    const groupHead = (g, code) => {
+      const sum = g.items.reduce((n, it) => {
+        const p = toNumber(it.price);
+        return it.optional || p === null ? n : n + p * (toNumber(it.qty) ?? 1);
+      }, 0);
+      return `<div class="q-group">
+        <div class="q-group-title"><span class="code">${code}</span>${esc(g.name || "未分類")}</div>
+        <div class="q-group-sum">${sum ? money(sum) : ""}</div>
+      </div>`;
+    };
+    q.groups.forEach((g, gi) => g.items.forEach((it, i) => itemRows.push(`
+      ${i === 0 ? groupHead(g, String.fromCharCode(65 + gi)) : ""}
       <div class="q-item${it.optional ? " is-optional" : ""}">
-        <div>
+        <div class="q-item-main">
+          <span class="q-item-no">${String.fromCharCode(65 + gi)}${i + 1}</span>
+          <div>
           <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
           ${it.detail ? `<div class="q-item-detail rich">${richText(it.detail)}</div>` : ""}
+          </div>
         </div>
         <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
         <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>

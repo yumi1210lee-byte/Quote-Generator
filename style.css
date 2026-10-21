@@ -183,7 +183,17 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-item > :nth-child(4) { grid-column: 7 / 9; }
 .q-items-head { padding-top: 0; color: var(--p-sub); font-family: var(--mono); font-size: 8.5px; border-bottom-color: var(--p-ink); }
 .q-items-head .q-num { font-size: 8.5px; }
-.q-group-name { font-weight: 600; padding: var(--u) 0 0; white-space: pre-line; }
+/* category header: serif name with letter code and category subtotal, ruled in black */
+.q-group {
+  display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); align-items: baseline;
+  padding: calc(var(--u) * 2) 0 var(--u); border-bottom: 1px solid var(--p-ink);
+}
+.q-group-title { grid-column: 1 / 7; font-family: var(--serif); font-size: 14px; line-height: 1.3; white-space: pre-line; }
+.q-group-title .code { font-family: var(--mono); font-size: 9px; color: var(--p-sub); margin-right: var(--u); vertical-align: 2px; }
+.q-group-sum { grid-column: 7 / 9; text-align: right; font-family: var(--mono); font-size: 10px; color: var(--p-sub); }
+/* item: grey index in its own column, title and detail aligned after it */
+.q-item-main { display: grid; grid-template-columns: 2.4em 1fr; }
+.q-item-no { font-family: var(--mono); font-size: 9px; color: var(--p-sub); padding-top: 1px; }
 .q-item-title { font-weight: 500; white-space: pre-line; }
 .q-item-detail { color: var(--p-sub); white-space: pre-line; margin-top: 2px; font-size: 9.5px; }
 .q-item.is-optional .q-item-title, .q-item.is-optional .q-num { color: var(--p-sub); }
