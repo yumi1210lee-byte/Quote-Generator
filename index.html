@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>報價單</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="toolbar-group edit-only">
+      <label>範本
+        <select id="templateSelect"></select>
+      </label>
+      <label>已存報價單
+        <select id="savedSelect"></select>
+      </label>
+      <button id="saveBtn" type="button">儲存</button>
+      <button id="deleteBtn" type="button" class="ghost">刪除</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="shareBtn" type="button" class="edit-only">複製分享連結</button>
+      <button id="exportBtn" type="button" class="ghost edit-only">匯出檔案</button>
+      <label class="ghost button edit-only">匯入檔案<input id="importInput" type="file" accept="application/json" hidden></label>
+      <button id="editCopyBtn" type="button" class="ghost view-only">編輯副本</button>
+      <button id="printBtn" type="button" class="primary">列印 / 存成 PDF</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <form id="editor" class="editor edit-only" autocomplete="off" onsubmit="return false">
+      <section>
+        <h2>專案資訊</h2>
+        <div class="grid2">
+          <label class="span2">專案名稱<input data-field="project"></label>
+          <label>報價日期<input type="date" data-field="date"></label>
+          <label>有效天數<input type="number" min="1" data-field="validDays"></label>
+          <label>客戶<input data-field="client"></label>
+          <label>聯絡人<input data-field="contact"></label>
+          <label class="span2">聯絡方式<input data-field="contactInfo"></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>報價項目</h2>
+        <div id="groups"></div>
+        <button type="button" id="addGroupBtn" class="ghost">＋ 新增項目分類</button>
+      </section>
+
+      <section>
+        <h2>小計與折扣</h2>
+        <div class="grid2">
+          <label class="span2">小計標題<input data-field="subtotalLabel" placeholder="小計"></label>
+          <label class="span2">折扣說明<textarea rows="2" data-field="discountLabel" placeholder="例：首次合作/朋友推薦 折扣"></textarea></label>
+          <label>折數<input data-field="discountRate" placeholder="例：79、85、9（空白＝不打折）"></label>
+          <label>訂金比例 (%)<input type="number" min="0" max="100" data-field="depositPct"></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>備註</h2>
+        <textarea rows="6" data-field="notes"></textarea>
+      </section>
+
+      <section>
+        <h2>時程安排</h2>
+        <p class="hint">日期可留空；結束日期只在期間時填寫。整段都空白就不會顯示。</p>
+        <div id="schedule"></div>
+        <button type="button" id="addStepBtn" class="ghost">＋ 新增時程</button>
+      </section>
+
+      <details>
+        <summary>我的資料與合作條款（會記在這台瀏覽器）</summary>
+        <div class="grid2">
+          <label>設計師<input data-profile="designer"></label>
+          <label>電話<input data-profile="phone"></label>
+          <label class="span2">Email<input data-profile="email"></label>
+          <label>銀行代碼 / 分行<input data-profile="bankCode"></label>
+          <label>帳號<input data-profile="bankAccount"></label>
+          <label class="span2">合作條款 <small>（{訂金} 會自動換成訂金比例）</small><textarea rows="6" data-profile="terms"></textarea></label>
+          <label class="span2">頁尾<input data-profile="footer"></label>
+        </div>
+      </details>
+    </form>
+
+    <div class="preview-wrap">
+      <article id="paper" class="paper"></article>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="presets.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
