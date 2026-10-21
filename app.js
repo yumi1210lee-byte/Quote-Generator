@@ -132,6 +132,26 @@
     return p === null ? "" : money(p * (toNumber(it.qty) ?? 1));
   }
 
+  // Multi-line text with list markers. A line starting with * ＊ • - becomes a
+  // bullet, "1." / "1、" / "①" keep their number; the text after the marker and
+  // any following unmarked lines line up on one hanging indent.
+  const LIST_MARK = /^\s*([*＊•・\-–]|\d{1,2}[.、)）]|[①-⑳])\s*/;
+  function richText(text) {
+    let inList = false;
+    return String(text ?? "").split("\n").map((line) => {
+      const m = LIST_MARK.exec(line);
+      if (m) {
+        inList = true;
+        const mark = /^[*＊•・\-–]$/.test(m[1]) ? "•" : m[1];
+        return `<div class="li"><span class="mk">${esc(mark)}</span><span>${esc(line.slice(m[0].length))}</span></div>`;
+      }
+      if (!line.trim()) { inList = false; return `<div class="gap"></div>`; }
+      return inList
+        ? `<div class="li"><span class="mk"></span><span>${esc(line)}</span></div>`
+        : `<div>${esc(line)}</div>`;
+    }).join("");
+  }
+
   function toast(msg) {
     const el = $("#toast");
     el.textContent = msg;
@@ -211,7 +231,7 @@
       <div class="q-item${it.optional ? " is-optional" : ""}">
         <div>
           <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag">另計</span>` : ""}${it.noDiscount ? `<span class="tag">不打折</span>` : ""}</div>
-          ${it.detail ? `<div class="q-item-detail">${esc(it.detail)}</div>` : ""}
+          ${it.detail ? `<div class="q-item-detail rich">${richText(it.detail)}</div>` : ""}
         </div>
         <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
         <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>
@@ -231,20 +251,20 @@
       ${t.hasText ? `<p class="q-note">＊區間報價項目依實際內容另計，未列入小計</p>` : ""}
     </div>`]);
 
-    if (q.notes) addSection("備註", "NOTES", "", [`<div class="pre">${esc(q.notes)}</div>`]);
+    if (q.notes) addSection("備註", "NOTES", "", [`<div class="rich">${richText(q.notes)}</div>`]);
 
     const steps = (q.schedule || []).filter((s) => s.start || s.title || s.desc);
     if (steps.length) {
       const rows = steps.map((s) => `
         <div class="q-step">
           <span class="mono">${esc(fmtStep(s.start, s.end)) || "—"}</span>
-          <span><b>${esc(s.title)}</b>${s.desc ? `<span class="pre sub block">${esc(s.desc)}</span>` : ""}</span>
+          <span><b>${esc(s.title)}</b>${s.desc ? `<span class="rich sub block">${richText(s.desc)}</span>` : ""}</span>
         </div>`);
       rows[0] = `<p class="q-note top">時程大致安排，依實際情況再做討論調整</p>` + rows[0];
       addSection("時程安排", "SCHEDULE", `${steps.length} 階段`, rows);
     }
 
-    const terms = (p.terms || "").replaceAll("{訂金}", esc(q.depositPct ?? ""));
+    const terms = richText((p.terms || "").replaceAll("{訂金}", q.depositPct ?? ""));
     const no = () => String(++n).padStart(2, "0");
     blocks.push({ html: `
       <div class="q-cards bottom">
@@ -269,7 +289,7 @@
         <div class="card">
           <div class="mono">${no()}</div>
           <div class="card-head">合作條款<i>TERMS</i></div>
-          <div class="card-foot terms pre">${terms}</div>
+          <div class="card-foot terms rich">${terms}</div>
         </div>
       </div>` });
 
