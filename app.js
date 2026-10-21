@@ -214,7 +214,7 @@
           ${it.detail ? `<div class="q-item-detail">${esc(it.detail)}</div>` : ""}
         </div>
         <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
-        <div class="q-num">${esc(priceText(it.price))}</div>
+        <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>
         <div class="q-num strong">${itemTotal(it) ? `→ ${itemTotal(it)}` : ""}</div>
       </div>`)));
     if (!itemRows.length) itemRows.push("");
