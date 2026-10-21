@@ -1,4 +1,6 @@
 :root {
+  /* Latin in Montserrat, Chinese falls through to Noto Sans TC; Doto is only for dot-matrix display text */
+  --sans: "Montserrat", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   /* accent colors for small markers only: orange = attention, blue = information */
   --hl-orange: #f98513;
   --hl-blue: #223382;
@@ -16,7 +18,7 @@
 
 body {
   margin: 0;
-  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-family: var(--sans);
   color: var(--ink);
   background: var(--bg);
   font-size: 14px;
@@ -86,14 +88,13 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
   --p-sub: #8c8c8c;
   --p-rule: #bdbdbd;
   --p-card: #efefed;
-  --mono: "IBM Plex Mono", "Noto Sans TC", monospace;
-  --serif: "Noto Serif TC", serif;
   /* layout grid: 12 columns, 4mm gutters, 2mm vertical unit */
   --g: 4mm;
   --u: 2mm;
   --col4: calc((100% - 11 * var(--g)) / 3 + var(--g));  /* left edge of column 5 */
   color: var(--p-ink);
-  font-family: "Noto Sans TC", sans-serif;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
   font-size: 10.5px; line-height: 1.55;
   display: flex; flex-direction: column; gap: 16px;
 }
@@ -109,19 +110,19 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .paper .pre { white-space: pre-line; }
 /* lists: marker in its own column so wrapped lines align with the text */
 .rich .li { display: grid; grid-template-columns: max-content 1fr; }
-.rich .mk { min-width: 1.5em; padding-right: 0.3em; font-family: var(--mono); font-size: 0.92em; }
+.rich .mk { min-width: 1.5em; padding-right: 0.3em; font-family: var(--sans); font-size: 0.92em; }
 .rich .gap { height: var(--u); }
 .paper .sub { color: var(--p-sub); }
 .paper .block { display: block; }
-.paper .mono { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; }
-.q-num { text-align: right; white-space: nowrap; font-family: var(--mono); font-size: 10px; }
+.paper .mono { font-family: var(--sans); font-size: 9.5px; letter-spacing: 0.02em; }
+.q-num { text-align: right; white-space: nowrap; font-family: var(--sans); font-size: 10px; }
 .q-num.strong { color: var(--p-ink); font-weight: 500; }
 .q-note { color: var(--p-sub); font-size: 9px; margin: 6px 0 0; }
 .q-note.top { margin: 0 0 var(--u); }
 
 /* bilingual labels: black primary, grey English below */
 .lbl { display: flex; flex-direction: column; line-height: 1.25; }
-.lbl i { font-style: normal; font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; color: var(--p-sub); text-transform: uppercase; }
+.lbl i { font-style: normal; font-family: var(--sans); font-size: 8px; letter-spacing: 0.06em; color: var(--p-sub); text-transform: uppercase; }
 
 /* rounded card grid (top and bottom) */
 /* each card spans 4 of the 12 columns, so card edges are the grid's main lines */
@@ -136,23 +137,23 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-cards.bottom .card { min-height: 48mm; }
 .card-foot { margin-top: auto; }
 .card .dot {
-  font-family: "Doto", var(--mono); font-weight: 700; font-size: 22px; line-height: 1.1;
+  font-family: "Doto", var(--sans); font-weight: 700; font-size: 22px; line-height: 1.1;
   letter-spacing: 0.02em; text-transform: uppercase; word-break: break-word;
 }
 .card .big { font-size: 20px; font-weight: 500; line-height: 1.2; margin-bottom: 2px; }
-.card-head { font-family: var(--serif); font-size: 15px; display: flex; flex-direction: column; line-height: 1.25; }
-.card-head i { font-style: normal; font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; color: var(--p-sub); }
+.card-head { font-family: var(--sans); font-size: 15px; display: flex; flex-direction: column; line-height: 1.25; }
+.card-head i { font-style: normal; font-family: var(--sans); font-size: 8px; letter-spacing: 0.06em; color: var(--p-sub); }
 .card .terms { font-size: 8.5px; line-height: 1.45; }
 .sign-line { border-bottom: 1px solid var(--p-ink); height: 34px; margin: 4px 0; }
 
 /* ruled key / value lists */
 .kv-row { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g); padding: calc(var(--u) * 0.75) 0; border-bottom: 1px solid var(--p-rule); }
-.kv-row > span:last-child { text-align: right; font-family: var(--mono); font-size: 10px; }
+.kv-row > span:last-child { text-align: right; font-family: var(--sans); font-size: 10px; }
 .card .kv-row { border-color: #d6d6d4; }
 .card .kv-row > span:last-child { font-family: inherit; }
 .sums { border-top: 1px solid var(--p-ink); }
 .sums .kv-row.grand { border-bottom: 1px solid var(--p-ink); padding: calc(var(--u) * 1.5) 0; }
-.sums .kv-row.grand > span:last-child { font-family: "Doto", var(--mono); font-weight: 700; font-size: 22px; line-height: 1; }
+.sums .kv-row.grand > span:last-child { font-family: "Doto", var(--sans); font-weight: 700; font-size: 22px; line-height: 1; }
 
 /* numbered sections: serif title left, content right, dashed rule with dot markers */
 /* title in columns 1–4 (under the first card), content in columns 5–12 */
@@ -174,10 +175,10 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 }
 .q-sec::before { left: -3px; }
 .q-sec::after { left: calc(var(--col4) - 3px); }
-.q-sec-meta { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8.5px; color: var(--p-sub); margin-bottom: calc(var(--u) * 2); }
+.q-sec-meta { display: flex; justify-content: space-between; font-family: var(--sans); font-size: 8.5px; color: var(--p-sub); margin-bottom: calc(var(--u) * 2); }
 .q-sec-meta span:first-child { color: var(--p-ink); }
-.q-sec h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1.25; }
-.q-sec h2 small { display: block; font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.08em; color: var(--p-sub); margin-top: 3px; }
+.q-sec h2 { margin: 0; font-family: var(--sans); font-weight: 400; font-size: 20px; line-height: 1.25; }
+.q-sec h2 small { display: block; font-family: var(--sans); font-size: 8.5px; letter-spacing: 0.08em; color: var(--p-sub); margin-top: 3px; }
 
 /* item row on the 8 content columns: text 4 (ends at the 2nd card's edge) · qty 1 · unit price 1 · total 2 */
 .q-item { display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); padding: var(--u) 0; border-bottom: 1px solid var(--p-rule); }
@@ -185,19 +186,19 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .q-item > :nth-child(2) { grid-column: 5 / 6; }
 .q-item > :nth-child(3) { grid-column: 6 / 7; white-space: normal; }
 .q-item > :nth-child(4) { grid-column: 7 / 9; }
-.q-items-head { padding-top: 0; color: var(--p-sub); font-family: var(--mono); font-size: 8.5px; border-bottom-color: var(--p-ink); }
+.q-items-head { padding-top: 0; color: var(--p-sub); font-family: var(--sans); font-size: 8.5px; border-bottom-color: var(--p-ink); }
 .q-items-head .q-num { font-size: 8.5px; }
 /* category header: serif name with letter code and category subtotal, ruled in black */
 .q-group {
   display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); align-items: center;
   padding: calc(var(--u) * 1.5) 0; border-bottom: 1px solid var(--p-ink);
 }
-.q-group-title { grid-column: 1 / 7; font-family: var(--serif); font-size: 14px; line-height: 1.2; white-space: pre-line; }
-.q-group-title .code { font-family: var(--mono); font-size: 9px; color: var(--p-sub); margin-right: var(--u); vertical-align: 2px; }
-.q-group-sum { grid-column: 7 / 9; text-align: right; font-family: var(--mono); font-size: 10px; line-height: 1.2; color: var(--p-sub); }
+.q-group-title { grid-column: 1 / 7; font-family: var(--sans); font-size: 14px; line-height: 1.2; white-space: pre-line; }
+.q-group-title .code { font-family: var(--sans); font-size: 9px; color: var(--p-sub); margin-right: var(--u); vertical-align: 2px; }
+.q-group-sum { grid-column: 7 / 9; text-align: right; font-family: var(--sans); font-size: 10px; line-height: 1.2; color: var(--p-sub); }
 /* item: grey index in its own column, title and detail aligned after it */
 .q-item-main { display: grid; grid-template-columns: 2.4em 1fr; }
-.q-item-no { font-family: var(--mono); font-size: 9px; color: var(--p-sub); padding-top: 1px; }
+.q-item-no { font-family: var(--sans); font-size: 9px; color: var(--p-sub); padding-top: 1px; }
 .q-item-title { font-weight: 500; white-space: pre-line; }
 .q-item-detail { color: var(--p-sub); white-space: pre-line; margin-top: 2px; font-size: 9.5px; }
 .q-item.is-optional .q-item-title, .q-item.is-optional .q-num { color: var(--p-sub); }
@@ -243,7 +244,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .lib-price { white-space: nowrap; font-variant-numeric: tabular-nums; padding-top: 14px; }
 .lib-actions { display: flex; gap: 6px; padding-top: 10px; }
 .lib-actions button { padding: 4px 10px; font-size: 12px; }
-.mkt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; font-family: "IBM Plex Mono", "Noto Sans TC", monospace; }
+.mkt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; font-family: var(--sans); }
 .mkt:empty { display: none; }
 .mkt a { color: var(--muted); }
 .mkt > span:first-child { color: var(--hl-blue); }
