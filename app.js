@@ -341,6 +341,11 @@
         </div>
       </div>` });
 
+    // A client opening the share link on a phone gets one continuous, reflowed page
+    // instead of shrunken A4 sheets; printing always uses the A4 layout.
+    document.body.classList.toggle("reflow",
+      document.body.classList.contains("view") && !document.body.classList.contains("printing") && innerWidth < 700);
+
     paginate(blocks, (i, total) => `
       <span>${esc(studio)}</span>
       <span>${esc(p.footer)}</span>
@@ -349,8 +354,20 @@
     document.title = [ymd, q.project, "報價"].filter(Boolean).join("_");
   }
 
+  // Shrink the A4 sheets to fit narrow screens (phones) without changing the layout
+  function fitPaper() {
+    const paper = $("#paper");
+    const room = paper.parentElement.clientWidth;
+    const page = paper.querySelector(".page");
+    paper.style.zoom = "";
+    if (!page || document.body.classList.contains("reflow")) return;
+    const scale = Math.min(1, room / page.offsetWidth);
+    if (scale < 1) paper.style.zoom = scale.toFixed(3);
+  }
+
   function paginate(blocks, footer) {
     const paper = $("#paper");
+    paper.style.zoom = "";   // measure at full size
     paper.innerHTML = "";
     const pages = [];
     const newPage = () => {
@@ -379,6 +396,7 @@
       }
     }
     pages.forEach((page, i) => { page.lastElementChild.innerHTML = footer(i + 1, pages.length); });
+    fitPaper();
   }
 
   // ---------- editor ----------
@@ -566,9 +584,22 @@
     return JSON.parse(new TextDecoder().decode(data));
   }
 
+  // Leave out empty fields and default profile text so share links stay shorter;
+  // the reader fills them back in from the same defaults.
+  function compact(v) {
+    if (Array.isArray(v)) return v.map(compact);
+    if (v && typeof v === "object") {
+      const out = {};
+      for (const [k, x] of Object.entries(v)) if (x !== "" && x !== false && x != null) out[k] = compact(x);
+      return out;
+    }
+    return v;
+  }
+
   async function share() {
     const { id, ...q } = quote;
-    const url = `${location.origin}${location.pathname}#v=${await pack({ q, p: profile })}`;
+    const p = Object.fromEntries(Object.entries(profile).filter(([k, v]) => v !== DEFAULT_PROFILE[k]));
+    const url = `${location.origin}${location.pathname}#v=${await pack({ q: compact(q), p: compact(p) })}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("分享連結已複製，客戶打開會看到唯讀版本");
@@ -888,5 +919,14 @@
   }
 
   init();
+  let resizeTimer, lastWidth = innerWidth;
+  window.addEventListener("resize", () => {
+    if (innerWidth === lastWidth) return;   // e.g. a phone's address bar showing/hiding
+    lastWidth = innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (quote) renderPreview(); }, 150);
+  });
+  window.addEventListener("beforeprint", () => { document.body.classList.add("printing"); if (quote) renderPreview(); });
+  window.addEventListener("afterprint", () => { document.body.classList.remove("printing"); if (quote) renderPreview(); });
   if (document.fonts) document.fonts.ready.then(() => { if (quote) renderPreview(); });
 })();
