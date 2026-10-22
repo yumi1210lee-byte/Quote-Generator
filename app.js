@@ -140,30 +140,42 @@
     return `${md(a)}-${tail} (${WEEKDAYS[a.getDay()]}~${WEEKDAYS[b.getDay()]})`;
   }
 
+  // Amounts are [low, high] pairs so price ranges (e.g. "12,000 – 18,000") add up
+  // into ranged subtotals; a fixed price is just low === high.
+  function itemSpan(it) {
+    if (it.optional) return null;
+    const span = priceSpan(it.price);
+    const qty = toNumber(it.qty) ?? 1;
+    return span ? [span[0] * qty, span[1] * qty] : null;
+  }
+
+  function sumSpans(items) {
+    return items.reduce((acc, it) => {
+      const s = itemSpan(it);
+      return s ? [acc[0] + s[0], acc[1] + s[1]] : acc;
+    }, [0, 0]);
+  }
+
+  function moneySpan([lo, hi], sep = " – ") {
+    return lo === hi ? money(lo) : `${money(lo)}${sep}${money(hi)}`;
+  }
+
   function totals(q) {
-    let subtotal = 0;
-    let undiscounted = 0;
-    let hasText = false;
-    for (const g of q.groups) {
-      for (const it of g.items) {
-        const p = toNumber(it.price);
-        if (it.optional) continue;
-        if (p === null) { if (String(it.price ?? "").trim()) hasText = true; continue; }
-        const amount = p * (toNumber(it.qty) ?? 1);
-        subtotal += amount;
-        if (it.noDiscount) undiscounted += amount;
-      }
-    }
+    const all = q.groups.flatMap((g) => g.items);
+    const subtotal = sumSpans(all);
+    const undiscounted = sumSpans(all.filter((it) => it.noDiscount));
+    const isRange = subtotal[0] !== subtotal[1];
     const rate = discountRate(q.discountRate);
-    const total = rate ? Math.round((subtotal - undiscounted) * rate) + undiscounted : subtotal;
-    const deposit = Math.round(total * (toNumber(q.depositPct) ?? 0) / 100);
-    return { subtotal, rate, total, deposit, hasText };
+    const apply = (i) => (rate ? Math.round((subtotal[i] - undiscounted[i]) * rate) + undiscounted[i] : subtotal[i]);
+    const total = [apply(0), apply(1)];
+    const pct = (toNumber(q.depositPct) ?? 0) / 100;
+    const deposit = [Math.round(total[0] * pct), Math.round(total[1] * pct)];
+    return { subtotal, rate, total, deposit, isRange };
   }
 
   function itemTotal(it) {
-    if (it.optional) return "";
-    const p = toNumber(it.price);
-    return p === null ? "" : money(p * (toNumber(it.qty) ?? 1));
+    const s = itemSpan(it);
+    return s ? moneySpan(s, "&nbsp;–<br>") : "";
   }
 
   // Multi-line text with list markers. A line starting with * ＊ • - becomes a
@@ -262,13 +274,10 @@
     const itemRows = [];
     // Category header (letter, name, category subtotal) above its numbered items
     const groupHead = (g, code) => {
-      const sum = g.items.reduce((n, it) => {
-        const p = toNumber(it.price);
-        return it.optional || p === null ? n : n + p * (toNumber(it.qty) ?? 1);
-      }, 0);
+      const sum = sumSpans(g.items);
       return `<div class="q-group">
         <div class="q-group-title"><span class="code">${code}</span>${esc(g.name || "未分類")}</div>
-        <div class="q-group-sum">${sum ? money(sum) : ""}</div>
+        <div class="q-group-sum">${sum[1] ? moneySpan(sum, "–") : ""}</div>
       </div>`;
     };
     q.groups.forEach((g, gi) => g.items.forEach((it, i) => itemRows.push(`
@@ -292,11 +301,11 @@
     const rate = toNumber(q.discountRate);
     const [discountTitle, ...discountNote] = (q.discountLabel || "折扣").split("\n");
     addSection("金額", "AMOUNT", "NT$", [`<div class="kv sums">
-      <div class="kv-row">${lbl(esc(q.subtotalLabel || "小計"), "SUBTOTAL")}<span>${money(t.subtotal)}</span></div>
-      ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>−${money(t.subtotal - t.total)}</span></div>` : ""}
-      <div class="kv-row grand">${lbl("總計", "TOTAL NT$")}<span>${money(t.total)}</span></div>
-      ${t.deposit ? `<div class="kv-row">${lbl(`訂金 ${esc(q.depositPct)}%`, "DEPOSIT")}<span>${money(t.deposit)}</span></div>` : ""}
-      ${t.hasText ? `<p class="q-note">＊區間報價項目依實際內容另計，未列入小計</p>` : ""}
+      <div class="kv-row">${lbl(esc(q.subtotalLabel || "小計"), "SUBTOTAL")}<span>${moneySpan(t.subtotal)}</span></div>
+      ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>${((d) => (d[0] === d[1] ? `−${money(d[0])}` : `−(${moneySpan(d)})`))([t.subtotal[0] - t.total[0], t.subtotal[1] - t.total[1]])}</span></div>` : ""}
+      <div class="kv-row grand${t.isRange ? " is-range" : ""}">${lbl("總計", "TOTAL NT$")}<span>${moneySpan(t.total, "–")}</span></div>
+      ${t.deposit[1] ? `<div class="kv-row">${lbl(`訂金 ${esc(q.depositPct)}%`, "DEPOSIT")}<span>${moneySpan(t.deposit)}</span></div>` : ""}
+      ${t.isRange ? `<p class="q-note">＊含區間報價，金額以範圍表示，實際依確認的內容與規格為準</p>` : ""}
     </div>`]);
 
     if (q.notes) addSection("備註", "NOTES", "", [`<div class="rich">${richText(q.notes)}</div>`]);

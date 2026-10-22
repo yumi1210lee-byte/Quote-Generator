@@ -154,6 +154,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .sums { border-top: 1px solid var(--p-ink); }
 .sums .kv-row.grand { border-bottom: 1px solid var(--p-ink); padding: calc(var(--u) * 1.5) 0; }
 .sums .kv-row.grand > span:last-child { font-family: "Doto", var(--sans); font-weight: 700; font-size: 22px; line-height: 1; }
+.sums .kv-row.grand.is-range > span:last-child { font-size: 17px; white-space: nowrap; }
 
 /* numbered sections: serif title left, content right, dashed rule with dot markers */
 /* title in columns 1–4 (under the first card), content in columns 5–12 */
