@@ -117,6 +117,7 @@ button.icon { padding: 2px 8px; background: transparent; color: var(--muted); bo
 .paper .mono { font-family: var(--sans); font-size: 9.5px; letter-spacing: 0.02em; }
 .q-num { text-align: right; white-space: nowrap; font-family: var(--sans); font-size: 10px; }
 .q-num.strong { color: var(--p-ink); font-weight: 500; }
+.q-num .was { color: var(--p-sub); font-weight: 400; text-decoration-thickness: 1px; }
 .q-note { color: var(--p-sub); font-size: 9px; margin: 6px 0 0; }
 .q-note.top { margin: 0 0 var(--u); }
 

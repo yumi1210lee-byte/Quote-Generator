@@ -143,7 +143,7 @@
   // Amounts are [low, high] pairs so price ranges (e.g. "12,000 – 18,000") add up
   // into ranged subtotals; a fixed price is just low === high.
   function itemSpan(it) {
-    if (it.optional) return null;
+    if (it.optional || it.choice) return null;   // extras and options are not in the subtotal
     const span = priceSpan(it.price);
     const qty = toNumber(it.qty) ?? 1;
     return span ? [span[0] * qty, span[1] * qty] : null;
@@ -171,6 +171,18 @@
     const pct = (toNumber(q.depositPct) ?? 0) / 100;
     const deposit = [Math.round(total[0] * pct), Math.round(total[1] * pct)];
     return { subtotal, rate, total, deposit, isRange };
+  }
+
+  // An option the client picks from: not in the subtotal, but shows its discounted price
+  function choiceTotal(it, rate) {
+    const span = priceSpan(it.price);
+    if (!span) return "";
+    const qty = toNumber(it.qty) ?? 1;
+    const raw = [span[0] * qty, span[1] * qty];
+    const br = "&nbsp;–<br>";
+    if (!rate || it.noDiscount) return `→ ${moneySpan(raw, br)}`;
+    const cut = raw.map((n) => Math.round(n * rate));
+    return `<s class="was">${moneySpan(raw, br)}</s><br>→ ${moneySpan(cut, br)}`;
   }
 
   function itemTotal(it) {
@@ -277,7 +289,7 @@
       const sum = sumSpans(g.items);
       return `<div class="q-group">
         <div class="q-group-title"><span class="code">${code}</span>${esc(g.name || "未分類")}</div>
-        <div class="q-group-sum">${sum[1] ? moneySpan(sum, "–") : ""}</div>
+        <div class="q-group-sum">${sum[1] ? moneySpan(sum, "–") : g.items.some((it) => it.choice) ? "方案擇一" : ""}</div>
       </div>`;
     };
     q.groups.forEach((g, gi) => g.items.forEach((it, i) => itemRows.push(`
@@ -286,13 +298,13 @@
         <div class="q-item-main">
           <span class="q-item-no">${String.fromCharCode(65 + gi)}${i + 1}</span>
           <div>
-          <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag tag-extra">另計</span>` : ""}${it.noDiscount ? `<span class="tag tag-nodisc">不打折</span>` : ""}</div>
+          <div class="q-item-title">${esc(it.content)}${it.optional ? `<span class="tag tag-extra">另計</span>` : ""}${it.choice ? `<span class="tag tag-extra">方案</span>` : ""}${it.noDiscount ? `<span class="tag tag-nodisc">不打折</span>` : ""}</div>
           ${it.detail ? `<div class="q-item-detail rich">${richText(it.detail)}</div>` : ""}
           </div>
         </div>
         <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
         <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>
-        <div class="q-num strong">${itemTotal(it) ? `→ ${itemTotal(it)}` : ""}</div>
+        <div class="q-num strong">${it.choice ? choiceTotal(it, t.rate) : itemTotal(it) ? `→ ${itemTotal(it)}` : ""}</div>
       </div>`)));
     if (!itemRows.length) itemRows.push("");
     itemRows[0] = `<div class="q-item q-items-head"><span>內容 / 服務細項</span><span class="q-num">數量</span><span class="q-num">單價</span><span class="q-num">總價</span></div>` + itemRows[0];
@@ -305,6 +317,7 @@
       ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>${((d) => (d[0] === d[1] ? `−${money(d[0])}` : `−(${moneySpan(d)})`))([t.subtotal[0] - t.total[0], t.subtotal[1] - t.total[1]])}</span></div>` : ""}
       <div class="kv-row grand${t.isRange ? " is-range" : ""}">${lbl("總計", "TOTAL NT$")}<span>${moneySpan(t.total, "–")}</span></div>
       ${t.deposit[1] ? `<div class="kv-row">${lbl(`訂金 ${esc(q.depositPct)}%`, "DEPOSIT")}<span>${moneySpan(t.deposit)}</span></div>` : ""}
+      ${q.groups.some((g) => g.items.some((it) => it.choice)) ? `<p class="q-note">＊標示「方案」的品項供挑選，未計入小計${t.rate ? "；折後價已列在總價欄" : ""}</p>` : ""}
       ${t.isRange ? `<p class="q-note">＊含區間報價，金額以範圍表示，實際依確認的內容與規格為準</p>` : ""}
     </div>`]);
 
@@ -436,6 +449,7 @@
             <div class="mkt full" data-mkt>${marketNote(g.name, it)}</div>
             <div class="row-actions">
               <label class="check"><input type="checkbox" data-i="optional" ${it.optional ? "checked" : ""}>不計入小計（追加/修改費用）</label>
+              <label class="check"><input type="checkbox" data-i="choice" ${it.choice ? "checked" : ""}>方案（供挑選，不計入小計）</label>
               <label class="check"><input type="checkbox" data-i="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
               <button type="button" class="icon" data-act="saveToLib" title="存成常用項目">存入品項庫</button>
               <button type="button" class="icon" data-act="delItem" title="刪除">✕</button>
@@ -680,6 +694,7 @@
         <label>單位<input name="unit" value="${esc(it.unit || "式")}"></label>
         <label>單價<input name="price" value="${esc(it.price)}" placeholder="數字或區間"></label>
         <label class="check full"><input type="checkbox" name="optional" ${it.optional ? "checked" : ""}>不計入小計</label>
+        <label class="check full"><input type="checkbox" name="choice" ${it.choice ? "checked" : ""}>方案（供挑選）</label>
         <label class="check full"><input type="checkbox" name="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
         <div class="full lib-form-actions">
           <button type="button" class="ghost" data-lib="cancel">取消</button>
@@ -749,6 +764,7 @@
       unit: f.unit.value.trim(),
       price: toNumber(price) ?? price,
       optional: f.optional.checked,
+      choice: f.choice.checked,
       noDiscount: f.noDiscount.checked,
     };
   }
@@ -757,7 +773,7 @@
     const g = quote.groups[pickTarget];
     if (!g) return;
     if (!g.name && !g.items.some((it) => it.content)) { g.name = x.category; g.items = []; }
-    g.items.push({ content: x.content, detail: x.detail, qty: 1, unit: x.unit, price: x.price, optional: !!x.optional, noDiscount: !!x.noDiscount });
+    g.items.push({ content: x.content, detail: x.detail, qty: 1, unit: x.unit, price: x.price, optional: !!x.optional, choice: !!x.choice, noDiscount: !!x.noDiscount });
     storage.set(STORE_DRAFT, quote);
     renderGroups();
     renderPreview();
@@ -827,7 +843,7 @@
     const lib = library();
     const item = {
       category: category.trim() || "其他", content: it.content.trim(), detail: it.detail, unit: it.unit,
-      price: toNumber(it.price) ?? it.price, optional: !!it.optional, noDiscount: !!it.noDiscount,
+      price: toNumber(it.price) ?? it.price, optional: !!it.optional, choice: !!it.choice, noDiscount: !!it.noDiscount,
     };
     const same = lib.find((x) => x.category === item.category && x.content === item.content);
     if (same) {
