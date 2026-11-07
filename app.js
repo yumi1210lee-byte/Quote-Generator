@@ -296,7 +296,6 @@
         <div class="card">
           <div class="dot">${docTitle[1]}</div>
           <div class="card-foot">
-            <div class="big">${docTitle[0]}</div>
             <div>NO. ${esc(q.receiptNo || (q.date || today()).replaceAll("-", ""))}</div>
             <div class="sub">${fmtDate(q.date)}</div>
           </div>
