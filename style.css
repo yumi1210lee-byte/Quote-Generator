@@ -271,7 +271,6 @@ body.reflow .page { width: auto; height: auto; padding: 16px 14px; overflow: vis
 body.reflow .page-body { overflow: visible; margin-bottom: 16px; }
 body.reflow .q-cards { grid-template-columns: 1fr; }
 body.reflow .q-cards.bottom .card { min-height: 0; }
-body.reflow .q-cards .card.span2 { grid-column: auto; }
 body.reflow .q-cards .card-foot { margin-top: var(--u); }
 body.reflow .q-sec { grid-template-columns: 1fr; row-gap: calc(var(--u) * 2); }
 body.reflow .q-sec::after { display: none; }
@@ -292,22 +291,20 @@ body.reflow .q-footer > :last-child { display: none; }
 /* receipt */
 body:not(.is-receipt) .receipt-only, body.is-receipt .quote-only { display: none !important; }
 .editor .sub-head { margin: 8px 0 -2px; color: var(--ink); font-weight: 500; }
-.q-cards .card.span2 { grid-column: span 2; }
-.paper .pill { display: inline-block; padding: 0 7px; border: 1px solid currentColor; border-radius: 999px; font-size: 8px; font-weight: 500; letter-spacing: 0.04em; }
-.paper .pill-info { color: var(--hl-blue); }
-.kv-row > span:last-child i.en, .kv-row.words > span:last-child i { display: block; font-style: normal; font-size: 8px; letter-spacing: 0.04em; color: var(--p-sub); }
-.sums .kv-row.words { flex-direction: column; align-items: stretch; gap: 2px; }
-.sums .kv-row.words .lbl { flex-direction: row; gap: 6px; align-items: baseline; }
-/* receipt: payment details in columns 1–4 beside the sums */
-.q-sec-body > .kv.pay { grid-column: 1 / 5; grid-row: 1; border-top: 1px solid var(--p-ink); align-self: start; }
-.q-sec-body > .kv.pay + .sums { grid-row: 1; }
-body.reflow .q-sec-body > .kv.pay, body.reflow .q-sec-body > .kv.pay + .sums { grid-column: 1 / -1; grid-row: auto; }
-.sums .kv-row.words > span:last-child { font-size: 9.5px; text-align: left; }
-.card .kv.bank .kv-row { padding: calc(var(--u) * 0.5) 0; }
-/* bank details: one line per row, Chinese and English label side by side */
-.card .kv.bank .kv-row { padding: calc(var(--u) * 0.4) 0; align-items: baseline; }
-.card .kv.bank .lbl { flex-direction: row; gap: 6px; align-items: baseline; white-space: nowrap; }
-.card .kv.bank .kv-row:last-child { border-bottom: none; }
+/* simplified receipt / invoice */
+.r-cards .card { min-height: 34mm; }
+.r-cards .card-foot b { font-weight: 600; }
+.r-item > :nth-child(1) { grid-column: 1 / 5; }
+.r-group { padding: calc(var(--u) * 1.5) 0 0; font-weight: 500; }
+.r-group + .r-item { border-top: none; }
+.q-sec-body > .r-sums { grid-column: 5 / -1; margin-top: var(--u); border-top: none; }
+.r-pay { border-top: 1px solid var(--p-ink); }
+.r-pay-row { display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); padding: calc(var(--u) * 0.5) 0; border-bottom: 1px solid var(--p-rule); }
+.r-pay-row > :first-child { grid-column: 1 / 4; }
+.r-pay-row > :first-child i { font-style: normal; color: var(--p-sub); margin-left: 6px; font-size: 9px; }
+.r-pay-row > :last-child { grid-column: 4 / 9; }
+body.reflow .r-pay-row > :first-child, body.reflow .r-pay-row > :last-child { grid-column: 1 / -1; }
+body.reflow .q-sec-body > .r-sums { grid-column: 1 / -1; }
 
 /* view-only mode (shared link) */
 .view-only { display: none; }

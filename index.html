@@ -60,11 +60,15 @@
               <option value="balance">尾款 Balance</option>
             </select>
           </label>
-          <label>收款日期<input type="date" data-field="paidDate"></label>
-          <label>付款方式<input data-field="payMethod" list="payMethods" placeholder="銀行轉帳"></label>
-          <label>實收金額<input data-field="received" placeholder="留空＝依款項自動計算"></label>
+          <label>付款方式
+            <select data-field="payMethod">
+              <option value="bank">銀行轉帳</option>
+              <option value="paypal">PayPal</option>
+              <option value="both">銀行轉帳＋PayPal</option>
+            </select>
+          </label>
+          <label class="span2">實收金額<input data-field="received" placeholder="留空＝依款項自動計算"></label>
         </div>
-        <datalist id="payMethods"><option value="銀行轉帳"><option value="現金"><option value="支票"><option value="PayPal"><option value="信用卡"></datalist>
         <p class="hint">品項的「英文名稱」會印在中文下面；代墊費用可以另開一個分類，例如「代墊費用 Expense Reimbursement」，並勾選不打折。</p>
       </section>
 
@@ -114,6 +118,7 @@
           <label class="span2">英文地址<textarea rows="2" data-profile="addressEn"></textarea></label>
           <label>銀行英文名稱<input data-profile="bankNameEn" placeholder="例：First Commercial Bank"></label>
           <label>SWIFT Code<input data-profile="swift"></label>
+          <label class="span2">PayPal 帳號（email 或 paypal.me 連結）<input data-profile="paypal"></label>
           <label>分行（英文）<input data-profile="bankBranch"></label>
           <label class="span2">銀行地址（英文）<textarea rows="2" data-profile="bankAddress"></textarea></label>
         </div>
