@@ -266,7 +266,7 @@
     Object.assign(r, {
       id: null, kind: "receipt", sourceId: src.id || null,
       date: today(), receiptNo: nextReceiptNo(),
-      payStage: "full", payMethod: "bank", received: "",
+      docTitle: "receipt", payStage: "full", payMethod: "bank", received: "",
       clientAddress: src.clientAddress || "", notes: "", schedule: [],
     });
     const ranged = r.groups.some((g) => g.items.some((it) => toNumber(it.price) === null && priceSpan(it.price)));
@@ -288,14 +288,15 @@
     const studio = p.studioName || p.designer || "";
     const got = receivedSpan(q, t);
     const { blocks, addSection } = sectionBuilder();
+    const docTitle = q.docTitle === "invoice" ? ["發票", "INVOICE"] : ["收據", "RECEIPT"];
     const lines = (arr) => arr.filter(Boolean).map((x) => `<div>${x}</div>`).join("");
 
     blocks.push({ html: `
       <div class="q-cards r-cards">
         <div class="card">
-          <div class="dot">INVOICE</div>
+          <div class="dot">${docTitle[1]}</div>
           <div class="card-foot">
-            <div class="big">收據</div>
+            <div class="big">${docTitle[0]}</div>
             <div>NO. ${esc(q.receiptNo || (q.date || today()).replaceAll("-", ""))}</div>
             <div class="sub">${fmtDate(q.date)}</div>
           </div>
@@ -353,7 +354,7 @@
     const method = PAY_OPTIONS[q.payMethod] ? q.payMethod : "bank";
     const payRows = [];
     if (method !== "paypal") payRows.push(
-      ["銀行", "Beneficiary Bank", [p.bankCode, p.bankNameEn].filter(Boolean).map(esc).join("<br>")],
+      ["銀行", "Beneficiary Bank", esc(p.bankNameEn || p.bankCode)],
       ["", "SWIFT Code", esc(p.swift)],
       ["銀行地址", "Beneficiary Bank Add.", multiline(p.bankAddress)],
       ["分行", "Branch", esc(p.bankBranch)],
@@ -372,7 +373,7 @@
       <span>${esc(p.footer)}</span>
       <span class="page-no">PAGE ${i} / ${total}</span>`);
 
-    document.title = [(q.date || today()).replaceAll("-", ""), q.project, "Invoice"].filter(Boolean).join("_");
+    document.title = [(q.date || today()).replaceAll("-", ""), q.project, q.docTitle === "invoice" ? "Invoice" : "Receipt"].filter(Boolean).join("_");
   }
 
   // The document is built as a list of blocks, then poured into A4 pages.
@@ -1016,7 +1017,7 @@
   function saveAsTemplate() {
     const name = prompt("範本名稱（客戶資料和日期不會存進範本）", quote.project || "");
     if (!name) return;
-    const { id, date, client, contact, contactInfo, clientAddress, kind, sourceId, receiptNo, paidDate, payStage, payMethod, received, ...data } = clone(quote);
+    const { id, date, client, contact, contactInfo, clientAddress, kind, sourceId, receiptNo, paidDate, docTitle, payStage, payMethod, received, ...data } = clone(quote);
     const list = myTemplates();
     const same = list.find((t) => t.label === name.trim());
     if (same && !confirm(`已經有「${same.label}」範本，要覆蓋嗎？`)) return;
