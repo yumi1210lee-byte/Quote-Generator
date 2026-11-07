@@ -22,6 +22,8 @@
       <button id="deleteBtn" type="button" class="ghost">刪除</button>
       <button id="saveTplBtn" type="button" class="ghost">另存為範本</button>
       <button id="libraryBtn" type="button" class="ghost">品項庫</button>
+      <button id="receiptBtn" type="button" class="ghost quote-only" title="用目前這份報價單的客戶與品項開一張收據">產生收據</button>
+      <button id="backQuoteBtn" type="button" class="ghost receipt-only">回到報價單</button>
     </div>
     <div class="toolbar-group">
       <button id="shareBtn" type="button" class="edit-only">複製分享連結</button>
@@ -38,16 +40,36 @@
         <h2>專案資訊</h2>
         <div class="grid2">
           <label class="span2">專案名稱<input data-field="project"></label>
-          <label>報價日期<input type="date" data-field="date"></label>
-          <label>有效天數<input type="number" min="1" data-field="validDays"></label>
+          <label><span class="quote-only">報價日期</span><span class="receipt-only">收據日期</span><input type="date" data-field="date"></label>
+          <label class="quote-only">有效天數<input type="number" min="1" data-field="validDays"></label>
+          <label class="receipt-only">收據編號<input data-field="receiptNo" placeholder="例：2026001"></label>
           <label>客戶<input data-field="client"></label>
           <label>聯絡人<input data-field="contact"></label>
+          <label class="span2 receipt-only">客戶地址<textarea rows="2" data-field="clientAddress"></textarea></label>
           <label class="span2">聯絡方式<input data-field="contactInfo"></label>
         </div>
       </section>
 
+      <section class="receipt-only">
+        <h2>收款資訊</h2>
+        <div class="grid2">
+          <label>款項
+            <select data-field="payStage">
+              <option value="full">全額 Full payment</option>
+              <option value="deposit">訂金 Deposit</option>
+              <option value="balance">尾款 Balance</option>
+            </select>
+          </label>
+          <label>收款日期<input type="date" data-field="paidDate"></label>
+          <label>付款方式<input data-field="payMethod" list="payMethods" placeholder="銀行轉帳"></label>
+          <label>實收金額<input data-field="received" placeholder="留空＝依款項自動計算"></label>
+        </div>
+        <datalist id="payMethods"><option value="銀行轉帳"><option value="現金"><option value="支票"><option value="PayPal"><option value="信用卡"></datalist>
+        <p class="hint">品項的「英文名稱」會印在中文下面；代墊費用可以另開一個分類，例如「代墊費用 Expense Reimbursement」，並勾選不打折。</p>
+      </section>
+
       <section>
-        <h2>報價項目</h2>
+        <h2><span class="quote-only">報價項目</span><span class="receipt-only">收款項目</span></h2>
         <div id="groups"></div>
         <button type="button" id="addGroupBtn" class="ghost">＋ 新增項目分類</button>
       </section>
@@ -67,7 +89,7 @@
         <textarea rows="6" data-field="notes"></textarea>
       </section>
 
-      <section>
+      <section class="quote-only">
         <h2>時程安排</h2>
         <p class="hint">日期可留空；結束日期只在期間時填寫。整段都空白就不會顯示。</p>
         <div id="schedule"></div>
@@ -85,6 +107,15 @@
           <label>帳號<input data-profile="bankAccount"></label>
           <label class="span2">合作條款 <small>（{訂金} 會自動換成訂金比例）</small><textarea rows="6" data-profile="terms"></textarea></label>
           <label class="span2">頁尾<input data-profile="footer"></label>
+          <p class="span2 hint sub-head">收據用（中英文，國外客戶匯款需要）</p>
+          <label>英文姓名<input data-profile="designerEn" placeholder="例：LEE, WAN-YU"></label>
+          <label>戶名（留空用英文姓名）<input data-profile="beneficiary"></label>
+          <label class="span2">地址<input data-profile="address"></label>
+          <label class="span2">英文地址<textarea rows="2" data-profile="addressEn"></textarea></label>
+          <label>銀行英文名稱<input data-profile="bankNameEn" placeholder="例：First Commercial Bank"></label>
+          <label>SWIFT Code<input data-profile="swift"></label>
+          <label>分行（英文）<input data-profile="bankBranch"></label>
+          <label class="span2">銀行地址（英文）<textarea rows="2" data-profile="bankAddress"></textarea></label>
         </div>
       </details>
     </form>

@@ -11,6 +11,9 @@
   const DEFAULT_PROFILE = {
     studioName: "", designer: "", phone: "", email: "",
     bankCode: "", bankAccount: "",
+    // receipt (bilingual, for overseas transfers)
+    designerEn: "", beneficiary: "", address: "", addressEn: "",
+    bankNameEn: "", swift: "", bankBranch: "", bankAddress: "",
     terms: DEFAULT_TERMS,
     footer: "感謝支持 !! 如有問題請隨時提出",
   };
@@ -220,24 +223,241 @@
 
   // ---------- preview ----------
 
-  function renderPreview() {
+  // Bilingual label: primary in black, English in grey underneath
+  const lbl = (zh, en) => `<span class="lbl">${zh}<i>${en}</i></span>`;
+  const kv = (rows) => rows.filter(([, , v]) => v !== "" && v != null)
+    .map(([zh, en, v]) => `<div class="kv-row">${lbl(zh, en)}<span>${v}</span></div>`).join("");
+  const multiline = (s) => esc(s).replace(/\n/g, "<br>");
+
+  // ---------- receipt ----------
+
+  const isReceipt = (q) => q && q.kind === "receipt";
+  const PAY_STAGES = {
+    full: ["全額", "FULL PAYMENT"],
+    deposit: ["訂金", "DEPOSIT"],
+    balance: ["尾款", "BALANCE PAYMENT"],
+  };
+  const PAY_METHODS_EN = { 銀行轉帳: "Bank Transfer", 匯款: "Bank Transfer", 現金: "Cash", 支票: "Cheque", 信用卡: "Credit Card", PayPal: "PayPal" };
+
+  // 63676 → 陸萬參仟陸佰柒拾陸元整
+  function zhUpper(num) {
+    const D = "零壹貳參肆伍陸柒捌玖", U = ["", "拾", "佰", "仟"], B = ["", "萬", "億", "兆"];
+    let n = Math.round(Math.abs(num));
+    if (!n) return "零元整";
+    const groups = [];
+    while (n > 0) { groups.push(n % 10000); n = Math.floor(n / 10000); }
+    let out = "", gap = false;
+    for (let gi = groups.length - 1; gi >= 0; gi--) {
+      const g = groups[gi];
+      if (!g) { gap = out !== ""; continue; }
+      if (gap || (out && g < 1000)) out += "零";
+      gap = false;
+      let s = "", zero = false;
+      for (let i = 3; i >= 0; i--) {
+        const d = Math.floor(g / 10 ** i) % 10;
+        if (!d) { zero = s !== ""; continue; }
+        if (zero) s += "零";
+        s += D[d] + U[i];
+        zero = false;
+      }
+      out += s + B[gi];
+    }
+    return out + "元整";
+  }
+
+  // 63676 → SIXTY-THREE THOUSAND SIX HUNDRED SEVENTY-SIX
+  function enWords(num) {
+    const ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "ELEVEN", "TWELVE",
+      "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"];
+    const tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+    const scales = ["", "THOUSAND", "MILLION", "BILLION"];
+    const hundreds = (x) => {
+      const w = [];
+      if (x >= 100) { w.push(ones[Math.floor(x / 100)] + " HUNDRED"); x %= 100; }
+      if (x >= 20) w.push(tens[Math.floor(x / 10)] + (x % 10 ? "-" + ones[x % 10] : ""));
+      else if (x) w.push(ones[x]);
+      return w.join(" ");
+    };
+    let n = Math.round(Math.abs(num));
+    if (!n) return "ZERO";
+    const parts = [];
+    for (let i = 0; n > 0; i++, n = Math.floor(n / 1000)) {
+      const c = n % 1000;
+      if (c) parts.unshift(hundreds(c) + (scales[i] ? " " + scales[i] : ""));
+    }
+    return parts.join(" ");
+  }
+
+  // Amount received on this receipt, as a [low, high] span
+  function receivedSpan(q, t) {
+    const manual = toNumber(q.received);
+    if (manual !== null) return [manual, manual];
+    if (q.payStage === "deposit") return t.deposit;
+    if (q.payStage === "balance") return [t.total[0] - t.deposit[0], t.total[1] - t.deposit[1]];
+    return t.total;
+  }
+
+  function nextReceiptNo() {
+    const year = String(new Date().getFullYear());
+    const used = savedList().filter(isReceipt).map((r) => String(r.receiptNo || ""))
+      .filter((no) => no.startsWith(year)).map((no) => Number(no.slice(4)) || 0);
+    return year + String(Math.max(0, ...used) + 1).padStart(3, "0");
+  }
+
+  // A new receipt from a quote: same client and items, minus extras and unchosen options
+  function makeReceipt(src) {
+    const r = clone(src);
+    let skipped = 0;
+    r.groups = r.groups.map((g) => ({
+      ...g,
+      items: g.items.filter((it) => {
+        const keep = !it.optional && !it.choice && (it.content || it.price);
+        if (!keep && (it.content || it.price)) skipped++;
+        return keep;
+      }),
+    })).filter((g) => g.items.length);
+    if (!r.groups.length) r.groups = [{ name: "", items: [{ content: "", contentEn: "", detail: "", qty: 1, unit: "式", price: "" }] }];
+    Object.assign(r, {
+      id: null, kind: "receipt", sourceId: src.id || null,
+      date: today(), paidDate: today(), receiptNo: nextReceiptNo(),
+      payStage: "full", payMethod: "銀行轉帳", received: "",
+      clientAddress: src.clientAddress || "", notes: "", schedule: [],
+    });
+    const ranged = r.groups.some((g) => g.items.some((it) => toNumber(it.price) === null && priceSpan(it.price)));
+    return { receipt: r, skipped, ranged };
+  }
+
+  function createReceipt() {
+    const { receipt, skipped, ranged } = makeReceipt(quote);
+    load(receipt);
+    toast([
+      "已產生收據",
+      skipped ? `略過 ${skipped} 個另計/方案品項` : "",
+      ranged ? "有區間價格，請改成實際金額" : "",
+    ].filter(Boolean).join("，"));
+  }
+
+  function renderReceipt() {
     const q = quote, p = profile, t = totals(q);
     const studio = p.studioName || p.designer || "";
-    const ymd = (q.date || today()).replaceAll("-", "");
-    const addDays = (s, n) => {
-      const d = parseDate(s);
-      if (!d || !n) return "";
-      d.setDate(d.getDate() + Number(n));
-      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-    };
-    // Bilingual label: primary in black, English in grey underneath
-    const lbl = (zh, en) => `<span class="lbl">${zh}<i>${en}</i></span>`;
-    const kv = (rows) => rows.filter(([, , v]) => v !== "" && v != null)
-      .map(([zh, en, v]) => `<div class="kv-row">${lbl(zh, en)}<span>${v}</span></div>`).join("");
+    const stage = PAY_STAGES[q.payStage] || PAY_STAGES.full;
+    const got = receivedSpan(q, t);
+    const { blocks, addSection, no } = sectionBuilder();
 
-    // The quote is built as a list of blocks, then poured into A4 pages.
-    // A section is split into one block per row so a long list can continue
-    // on the next page; continuation blocks ("cont") repeat the title there.
+    const from = [p.designer, p.designerEn].filter(Boolean);
+    blocks.push({ html: `
+      <div class="q-cards">
+        <div class="card">
+          <div class="dot">${esc(studio) || "STUDIO"}</div>
+          <div class="card-foot">
+            <div class="sub mono">開立人 FROM</div>
+            ${from.map((x) => `<div>${esc(x)}</div>`).join("")}
+            ${p.address || p.addressEn ? `<div class="sub">${p.address ? esc(p.address) : multiline(p.addressEn)}</div>` : ""}
+            <div class="sub">${esc(p.phone)}</div>
+            <div class="sub">${esc(p.email)}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="dot">RECEIPT</div>
+          <div class="card-foot">
+            <div class="big">收據</div>
+            <div>${esc(q.project)}</div>
+            <div class="sub">NO. ${esc(q.receiptNo || (q.date || today()).replaceAll("-", ""))}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div><span class="pill pill-info">${stage[0]} ${stage[1]}</span></div>
+          <div class="card-foot kv">${kv([
+            ["客戶", "BILLED TO", esc(q.client)],
+            ["聯絡人", "ATTENTION", esc(q.contact)],
+            ["地址", "ADDRESS", multiline(q.clientAddress)],
+            ["聯絡方式", "TEL / MAIL", esc(q.contactInfo)],
+            ["收據日期", "DATE", fmtDate(q.date)],
+          ])}</div>
+        </div>
+      </div>` });
+
+    const rows = [];
+    q.groups.forEach((g, gi) => g.items.forEach((it, i) => rows.push(`
+      ${i === 0 && g.name ? `<div class="q-group"><div class="q-group-title">${esc(g.name)}</div><div class="q-group-sum">${q.groups.length > 1 ? moneySpan(sumSpans(g.items), "–") : ""}</div></div>` : ""}
+      <div class="q-item">
+        <div class="q-item-main">
+          <span class="q-item-no">${String.fromCharCode(65 + gi)}${i + 1}</span>
+          <div>
+            <div class="q-item-title">${esc(it.content)}</div>
+            ${it.contentEn ? `<div class="q-item-detail">${esc(it.contentEn)}</div>` : ""}
+          </div>
+        </div>
+        <div class="q-num">${it.content || it.price ? `${esc(it.qty)} ${esc(it.unit)}` : ""}</div>
+        <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>
+        <div class="q-num strong">${itemTotal(it)}</div>
+      </div>`)));
+    if (!rows.length) rows.push("");
+    rows[0] = `<div class="q-item q-items-head">${lbl("內容", "DESCRIPTION")}${lbl("數量", "QTY")}${lbl("單價", "PRICE")}${lbl("金額", "AMOUNT")}</div>` + rows[0];
+    addSection("收款項目", "ITEMS", `${rows.length} 項`, rows);
+
+    const method = (q.payMethod || "").trim();
+    const payKv = `<div class="kv pay">${kv([
+      ["款項", "PAYMENT FOR", `${stage[0]}${q.payStage === "deposit" && q.depositPct ? ` ${esc(q.depositPct)}%` : ""}<i class="en">${stage[1]}</i>`],
+      ["收款日期", "DATE RECEIVED", fmtDate(q.paidDate)],
+      ["付款方式", "METHOD", method ? `${esc(method)}${PAY_METHODS_EN[method] ? `<i class="en">${PAY_METHODS_EN[method]}</i>` : ""}` : ""],
+    ])}</div>`;
+    const rate = toNumber(q.discountRate);
+    const [discountTitle, ...discountNote] = (q.discountLabel || "折扣").split("\n");
+    const minus = (d) => (d[0] === d[1] ? `−${money(d[0])}` : `−(${moneySpan(d)})`);
+    const fixed = got[0] === got[1];
+    addSection("金額與收款", "AMOUNT & PAYMENT", "NT$", [`${payKv}<div class="kv sums">
+      <div class="kv-row">${lbl(esc(q.subtotalLabel || "小計"), "SUBTOTAL")}<span>${moneySpan(t.subtotal)}</span></div>
+      ${t.rate ? `<div class="kv-row">${lbl(`${esc(discountTitle)}　${esc(String(rate))}折`, discountNote.length ? esc(discountNote.join(" ")) : "DISCOUNT")}<span>${minus([t.subtotal[0] - t.total[0], t.subtotal[1] - t.total[1]])}</span></div>` : ""}
+      ${!t.rate || (q.payStage === "full" && toNumber(q.received) === null) ? "" : `<div class="kv-row">${lbl("總計", "TOTAL")}<span>${moneySpan(t.total)}</span></div>`}
+      ${q.payStage === "balance" && t.deposit[1] ? `<div class="kv-row">${lbl(`已付訂金 ${esc(q.depositPct)}%`, "DEPOSIT PAID")}<span>${minus(t.deposit)}</span></div>` : ""}
+      <div class="kv-row grand${fixed ? "" : " is-range"}">${lbl("實收金額", "AMOUNT RECEIVED NT$")}<span>${moneySpan(got, "–")}</span></div>
+      ${fixed && got[0] > 0 ? `<div class="kv-row words">${lbl("新台幣", "IN WORDS")}<span>${zhUpper(got[0])}<i>NEW TAIWAN DOLLARS ${enWords(got[0])} ONLY</i></span></div>` : ""}
+      ${fixed ? "" : `<p class="q-note">＊含區間價格，請在品項改成實際金額</p>`}
+    </div>`]);
+
+    if (q.notes) addSection("備註", "NOTES", "", [`<div class="rich">${richText(q.notes)}</div>`]);
+
+    const bank = kv([
+      ["銀行", "BENEFICIARY BANK", [p.bankCode, p.bankNameEn].filter(Boolean).map(esc).join("<br>")],
+      ["分行", "BRANCH", esc(p.bankBranch)],
+      ["SWIFT", "SWIFT CODE", esc(p.swift)],
+      ["銀行地址", "BANK ADD.", multiline(p.bankAddress)],
+      ["戶名", "BENEFICIARY NAME", esc(p.beneficiary || p.designerEn || p.designer)],
+      ["帳號", "A/C NO.", esc(p.bankAccount)],
+      ["戶名地址", "BENEFICIARY ADD.", multiline(p.addressEn || p.address)],
+    ]);
+    blocks.push({ html: `
+      <div class="q-cards bottom">
+        <div class="card span2">
+          <div class="mono">${no()}</div>
+          <div class="card-head">匯款資訊<i>PAYMENT INFORMATION</i></div>
+          <div class="card-foot kv bank">${bank}</div>
+        </div>
+        <div class="card">
+          <div class="mono">${no()}</div>
+          <div class="card-head">收款確認<i>ISSUED BY</i></div>
+          <div class="card-foot">
+            <div class="sub">茲收到上列款項，特此證明。</div>
+            <div class="sub">Received with thanks the amount stated above.</div>
+            <div class="sign-line"></div>
+            <div class="sub">開立人簽章 / 日期　SIGNATURE / DATE</div>
+          </div>
+        </div>
+      </div>` });
+
+    paginate(blocks, (i, total) => `
+      <span>${esc(studio)}</span>
+      <span>${esc(p.footer)}</span>
+      <span class="page-no">PAGE ${i} / ${total}</span>`);
+
+    document.title = [(q.date || today()).replaceAll("-", ""), q.project, "收據"].filter(Boolean).join("_");
+  }
+
+  // The document is built as a list of blocks, then poured into A4 pages.
+  // A section is split into one block per row so a long list can continue
+  // on the next page; continuation blocks ("cont") repeat the title there.
+  function sectionBuilder() {
     const blocks = [];
     let n = 0;
     const head = (no, title, en, meta) => `
@@ -252,6 +472,26 @@
         contHead: i ? head(no, title, `${en} (CONT.)`, "續") : null,
       }));
     };
+    return { blocks, addSection, no: () => String(++n).padStart(2, "0") };
+  }
+
+  function renderPreview() {
+    document.body.classList.toggle("is-receipt", isReceipt(quote));
+    // A client opening the share link on a phone gets one continuous, reflowed page
+    // instead of shrunken A4 sheets; printing always uses the A4 layout.
+    document.body.classList.toggle("reflow",
+      document.body.classList.contains("view") && !document.body.classList.contains("printing") && innerWidth < 700);
+    if (isReceipt(quote)) { renderReceipt(); return; }
+    const q = quote, p = profile, t = totals(q);
+    const studio = p.studioName || p.designer || "";
+    const ymd = (q.date || today()).replaceAll("-", "");
+    const addDays = (s, n) => {
+      const d = parseDate(s);
+      if (!d || !n) return "";
+      d.setDate(d.getDate() + Number(n));
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    };
+    const { blocks, addSection, no } = sectionBuilder();
 
     blocks.push({ html: `
       <div class="q-cards">
@@ -335,7 +575,6 @@
     }
 
     const terms = richText((p.terms || "").replaceAll("{訂金}", q.depositPct ?? ""));
-    const no = () => String(++n).padStart(2, "0");
     blocks.push({ html: `
       <div class="q-cards bottom">
         <div class="card">
@@ -362,11 +601,6 @@
           <div class="card-foot terms rich">${terms}</div>
         </div>
       </div>` });
-
-    // A client opening the share link on a phone gets one continuous, reflowed page
-    // instead of shrunken A4 sheets; printing always uses the A4 layout.
-    document.body.classList.toggle("reflow",
-      document.body.classList.contains("view") && !document.body.classList.contains("printing") && innerWidth < 700);
 
     paginate(blocks, (i, total) => `
       <span>${esc(studio)}</span>
@@ -442,14 +676,15 @@
         ${g.items.map((it, ii) => `
           <div class="item-card" data-ii="${ii}">
             <label class="full">內容<textarea rows="1" data-i="content">${esc(it.content)}</textarea></label>
-            <label class="full">服務細項<textarea rows="3" data-i="detail">${esc(it.detail)}</textarea></label>
+            <label class="full receipt-only">英文名稱<textarea rows="1" data-i="contentEn" placeholder="例：Logo Design">${esc(it.contentEn)}</textarea></label>
+            <label class="full quote-only">服務細項<textarea rows="3" data-i="detail">${esc(it.detail)}</textarea></label>
             <label>數量<input data-i="qty" value="${esc(it.qty)}"></label>
             <label>單位<input data-i="unit" value="${esc(it.unit)}"></label>
             <label>單價<input data-i="price" value="${esc(it.price)}" placeholder="數字或區間"></label>
             <div class="mkt full" data-mkt>${marketNote(g.name, it)}</div>
             <div class="row-actions">
-              <label class="check"><input type="checkbox" data-i="optional" ${it.optional ? "checked" : ""}>不計入小計（追加/修改費用）</label>
-              <label class="check"><input type="checkbox" data-i="choice" ${it.choice ? "checked" : ""}>方案（供挑選，不計入小計）</label>
+              <label class="check quote-only"><input type="checkbox" data-i="optional" ${it.optional ? "checked" : ""}>不計入小計（追加/修改費用）</label>
+              <label class="check quote-only"><input type="checkbox" data-i="choice" ${it.choice ? "checked" : ""}>方案（供挑選，不計入小計）</label>
               <label class="check"><input type="checkbox" data-i="noDiscount" ${it.noDiscount ? "checked" : ""}>不打折</label>
               <button type="button" class="icon" data-act="saveToLib" title="存成常用項目">存入品項庫</button>
               <button type="button" class="icon" data-act="delItem" title="刪除">✕</button>
@@ -551,7 +786,7 @@
   function renderSaved() {
     const list = savedList();
     $("#savedSelect").innerHTML = `<option value="">（目前編輯中）</option>` +
-      list.map((q) => `<option value="${esc(q.id)}" ${q.id === quote.id ? "selected" : ""}>${esc(fmtDate(q.date))} ${esc(q.project || "未命名")}${q.client ? "｜" + esc(q.client) : ""}</option>`).join("");
+      list.map((q) => `<option value="${esc(q.id)}" ${q.id === quote.id ? "selected" : ""}>${isReceipt(q) ? `【收據 ${esc(q.receiptNo || "")}】` : ""}${esc(fmtDate(q.date))} ${esc(q.project || "未命名")}${q.client ? "｜" + esc(q.client) : ""}</option>`).join("");
   }
 
   function saveQuote() {
@@ -566,7 +801,7 @@
 
   function deleteQuote() {
     if (!quote.id) { toast("這份還沒儲存"); return; }
-    if (!confirm("確定刪除這份已存的報價單？")) return;
+    if (!confirm(isReceipt(quote) ? "確定刪除這張已存的收據？" : "確定刪除這份已存的報價單？")) return;
     storage.set(STORE_QUOTES, savedList().filter((q) => q.id !== quote.id));
     quote.id = null;
     renderSaved();
@@ -670,6 +905,7 @@
     const mine = myTemplates();
     $("#templateSelect").innerHTML = `<option value="">選擇範本開新報價單…</option>
       <optgroup label="內建範本">${Object.entries(TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join("")}</optgroup>
+      <optgroup label="收據"><option value="receipt">空白收據</option></optgroup>
       ${mine.length ? `<optgroup label="我的範本">${mine.map((t) => `<option value="my:${esc(t.id)}">${esc(t.label)}</option>`).join("")}</optgroup>` : ""}`;
   }
 
@@ -859,7 +1095,7 @@
   function saveAsTemplate() {
     const name = prompt("範本名稱（客戶資料和日期不會存進範本）", quote.project || "");
     if (!name) return;
-    const { id, date, client, contact, contactInfo, ...data } = clone(quote);
+    const { id, date, client, contact, contactInfo, clientAddress, kind, sourceId, receiptNo, paidDate, payStage, payMethod, received, ...data } = clone(quote);
     const list = myTemplates();
     const same = list.find((t) => t.label === name.trim());
     if (same && !confirm(`已經有「${same.label}」範本，要覆蓋嗎？`)) return;
@@ -925,6 +1161,11 @@
       e.target.value = "";
       if (!k) return;
       const label = e.target.querySelector(`option[value="${CSS.escape(k)}"]`).textContent;
+      if (k === "receipt") {
+        if (!confirm("開一張空白收據？目前未儲存的內容會被取代。")) return;
+        load(makeReceipt(newQuote("blank")).receipt);
+        return;
+      }
       if (!confirm(`用「${label}」範本開新報價單？目前未儲存的內容會被取代。`)) return;
       load(newQuote(k));
     });
@@ -940,6 +1181,17 @@
     $("#printBtn").addEventListener("click", () => window.print());
     $("#libraryBtn").addEventListener("click", () => openLibrary(-1));
     $("#saveTplBtn").addEventListener("click", saveAsTemplate);
+    $("#receiptBtn").addEventListener("click", () => {
+      if (!quote.id && quote.groups.some((g) => g.items.some((it) => it.content)) &&
+          confirm("這份報價單還沒儲存，要先儲存再產生收據嗎？（之後可以按「回到報價單」切回來）")) saveQuote();
+      createReceipt();
+    });
+    $("#backQuoteBtn").addEventListener("click", () => {
+      const src = savedList().find((x) => x.id === quote.sourceId);
+      if (!src) { toast("找不到原本的報價單（可能沒有儲存），請從「已存報價單」選擇"); return; }
+      if (!quote.id && !confirm("這張收據還沒儲存，確定離開？")) return;
+      load(clone(src));
+    });
     initLibraryDialog();
   }
 
