@@ -296,6 +296,7 @@
         <div class="card">
           <div class="dot">${docTitle[1]}</div>
           <div class="card-foot">
+            ${q.project ? `<div><b>${esc(q.project)}</b></div>` : ""}
             <div>NO. ${esc(q.receiptNo || (q.date || today()).replaceAll("-", ""))}</div>
             <div class="sub">${fmtDate(q.date)}</div>
           </div>
@@ -321,12 +322,18 @@
       </div>` });
 
     const rows = [];
-    q.groups.forEach((g) => g.items.forEach((it, i) => rows.push(`
-      ${i === 0 && g.name ? `<div class="r-group">${esc(g.name)}</div>` : ""}
+    q.groups.forEach((g, gi) => g.items.forEach((it, i) => rows.push(`
+      ${i === 0 ? `<div class="q-group">
+        <div class="q-group-title"><span class="code">${String.fromCharCode(65 + gi)}</span>${esc(g.name || "未分類")}</div>
+        <div class="q-group-sum">${moneySpan(sumSpans(g.items), "–")}</div>
+      </div>` : ""}
       <div class="q-item r-item">
-        <div>
-          <div class="q-item-title">${esc(it.content)}</div>
-          ${it.contentEn ? `<div class="q-item-detail">${esc(it.contentEn)}</div>` : ""}
+        <div class="q-item-main">
+          <span class="q-item-no">${String.fromCharCode(65 + gi)}${i + 1}</span>
+          <div>
+            <div class="q-item-title">${esc(it.content)}</div>
+            ${it.contentEn ? `<div class="q-item-detail">${esc(it.contentEn)}</div>` : ""}
+          </div>
         </div>
         <div class="q-num">${esc(priceText(it.price)).replace(/\s*[–~-]\s*/, "&nbsp;–<br>")}</div>
         <div class="q-num">${it.content || it.price ? esc(it.qty) : ""}</div>
@@ -346,7 +353,7 @@
       ${q.payStage === "balance" && t.deposit[1] ? `<div class="kv-row">${lbl("已付訂金", "DEPOSIT PAID")}<span>${minus(t.deposit)}</span></div>` : ""}
       <div class="kv-row grand${got[0] === got[1] ? "" : " is-range"}">${partial ? lbl(stage[0], `${stage[1]} NT$`) : lbl("總計", "TOTAL NT$")}<span>${moneySpan(got, "–")}</span></div>
     </div>`);
-    addSection(esc(q.project) || "收款項目", "ITEMS", "", rows);
+    addSection("項目", "ITEMS", `${q.groups.reduce((n, g) => n + g.items.length, 0)} 項`, rows);
 
     if (q.notes) addSection("備註", "NOTES", "", [`<div class="rich">${richText(q.notes)}</div>`]);
 
