@@ -295,6 +295,7 @@ body:not(.is-receipt) .receipt-only, body.is-receipt .quote-only { display: none
 .r-cards .card { min-height: 34mm; }
 .r-cards .card-foot b { font-weight: 600; }
 .r-item > :nth-child(1) { grid-column: 1 / 5; }
+.r-item .lbl.q-num { align-items: flex-end; }
 .q-sec-body > .r-sums { grid-column: 5 / -1; margin-top: var(--u); border-top: none; }
 .r-pay { border-top: 1px solid var(--p-ink); }
 .r-pay-row { display: grid; grid-template-columns: repeat(8, 1fr); column-gap: var(--g); padding: calc(var(--u) * 0.5) 0; border-bottom: 1px solid var(--p-rule); }

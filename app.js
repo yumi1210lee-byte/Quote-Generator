@@ -340,7 +340,7 @@
         <div class="q-num strong">${itemTotal(it)}</div>
       </div>`)));
     if (!rows.length) rows.push("");
-    rows[0] = `<div class="q-item r-item q-items-head">${lbl("內容", "DESCRIPTION")}${lbl("單價", "PRICE")}${lbl("數量", "QTY")}${lbl("金額", "TOTAL")}</div>` + rows[0];
+    rows[0] = `<div class="q-item r-item q-items-head">${lbl("內容", "DESCRIPTION")}${[["單價", "PRICE"], ["數量", "QTY"], ["金額", "TOTAL"]].map(([zh, en]) => `<span class="lbl q-num">${zh}<i>${en}</i></span>`).join("")}</div>` + rows[0];
 
     const rate = toNumber(q.discountRate);
     const [discountTitle] = (q.discountLabel || "折扣").split("\n");
